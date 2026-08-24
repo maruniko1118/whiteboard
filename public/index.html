@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Whiteboard</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Header Bar -->
+    <header class="app-header">
+      <div class="header-left">
+        <button id="board-drawer-btn" class="icon-btn" title="ボード一覧 (キャッシュ)" aria-label="ボード一覧">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+          <span class="board-badge" id="board-count-badge">1</span>
+        </button>
+
+        <div class="current-board-info" id="current-board-info">
+          <span class="board-icon">📋</span>
+          <h1 id="active-board-title" class="board-title" contenteditable="false" title="クリックして名前を変更">メインボード</h1>
+          <button id="rename-board-btn" class="mini-btn" title="ボード名を変更" aria-label="ボード名を変更">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="quick-board-tabs" id="quick-board-tabs">
+          <!-- Dynamically populated board tabs -->
+        </div>
+        <button id="quick-new-board-btn" class="quick-add-btn" title="新しいボードを作成">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="header-right">
+        <!-- Save status indicator -->
+        <div class="cache-status" id="cache-status" title="キャッシュ保存済み">
+          <span class="status-dot"></span>
+          <span class="status-text">保存済み</span>
+        </div>
+
+        <!-- Export Dropdown / Button -->
+        <button id="export-png-btn" class="btn btn-secondary" title="画像として保存 (PNG)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>PNG保存</span>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="theme-toggle-btn" class="icon-btn theme-toggle" title="テーマ切り替え (ホワイト / ダーク)" aria-label="テーマ切り替え">
+          <!-- Sun icon for light mode -->
+          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <!-- Moon icon for dark mode -->
+          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Canvas Area -->
+    <main class="canvas-container" id="canvas-container">
+      <canvas id="whiteboard-canvas"></canvas>
+      
+      <!-- Floating Toolbar -->
+      <nav class="floating-toolbar" aria-label="描画ツール">
+        <!-- Tools: Pen & Eraser -->
+        <div class="tool-group">
+          <button id="tool-pen" class="tool-btn active" data-tool="pen" title="ペン (P)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+              <path d="M2 2l7.586 7.586"></path>
+              <circle cx="11" cy="11" r="2"></circle>
+            </svg>
+            <span class="tool-label">ペン</span>
+          </button>
+          <button id="tool-eraser" class="tool-btn" data-tool="eraser" title="消しゴム (E)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"></path>
+              <path d="M17 17L7 7"></path>
+            </svg>
+            <span class="tool-label">消しゴム</span>
+          </button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- Color Palette (Black/White, Red, Yellow, Blue) -->
+        <div class="tool-group colors-group" id="colors-group" aria-label="ペンの色">
+          <button class="color-btn active" data-color="black" title="黒 (ダーク時は白) [1]">
+            <span class="color-swatch color-black" id="swatch-black"></span>
+            <span class="color-name" id="label-black">黒</span>
+          </button>
+          <button class="color-btn" data-color="red" title="赤 [2]">
+            <span class="color-swatch color-red"></span>
+            <span class="color-name">赤</span>
+          </button>
+          <button class="color-btn" data-color="yellow" title="黄 [3]">
+            <span class="color-swatch color-yellow"></span>
+            <span class="color-name">黄</span>
+          </button>
+          <button class="color-btn" data-color="blue" title="青 [4]">
+            <span class="color-swatch color-blue"></span>
+            <span class="color-name">青</span>
+          </button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- Stroke Width Options -->
+        <div class="tool-group width-group" aria-label="線の太さ">
+          <button class="width-btn" data-width="2" title="細い (2px)">
+            <span class="width-indicator fine"></span>
+          </button>
+          <button class="width-btn active" data-width="5" title="普通 (5px)">
+            <span class="width-indicator medium"></span>
+          </button>
+          <button class="width-btn" data-width="12" title="太い (12px)">
+            <span class="width-indicator bold"></span>
+          </button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- History: Undo / Redo / Clear -->
+        <div class="tool-group">
+          <button id="btn-undo" class="tool-btn action-btn" title="元に戻す (Ctrl+Z)" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 7v6h6"></path>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+            </svg>
+          </button>
+          <button id="btn-redo" class="tool-btn action-btn" title="やり直す (Ctrl+Y)" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 7v6h-6"></path>
+              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path>
+            </svg>
+          </button>
+          <button id="btn-clear" class="tool-btn action-btn danger-hover" title="ボードを全消去">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </nav>
+    </main>
+
+    <!-- Board Management Sidebar / Drawer -->
+    <aside class="board-drawer" id="board-drawer">
+      <div class="drawer-header">
+        <div class="drawer-title-area">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+          <h2>保存されたボード</h2>
+        </div>
+        <button id="close-drawer-btn" class="icon-btn" aria-label="閉じる">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="drawer-actions">
+        <button id="create-board-btn" class="btn btn-primary full-width">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>新しいボードを作成</span>
+        </button>
+      </div>
+
+      <div class="drawer-board-list" id="drawer-board-list">
+        <!-- Board list items rendered dynamically -->
+      </div>
+
+      <div class="drawer-footer">
+        <button id="export-all-btn" class="btn btn-ghost btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          全ボードJSONバックアップ
+        </button>
+        <label class="btn btn-ghost btn-sm file-import-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          JSONから復元
+          <input type="file" id="import-file-input" accept=".json" style="display: none;">
+        </label>
+      </div>
+    </aside>
+
+    <!-- Overlay Backdrop -->
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+    <!-- Confirm Modal -->
+    <dialog class="modal-dialog" id="confirm-dialog">
+      <div class="modal-content">
+        <h3 id="dialog-title">確認</h3>
+        <p id="dialog-message">ボードの内容をすべて消去しますか？</p>
+        <div class="modal-actions">
+          <button id="dialog-cancel-btn" class="btn btn-secondary">キャンセル</button>
+          <button id="dialog-confirm-btn" class="btn btn-danger">消去する</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="/js/storage.js"></script>
+  <script type="module" src="/js/canvas.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

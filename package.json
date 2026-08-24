@@ -1,0 +1,27 @@
+{
+  "name": "whiteboard",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "bugs": {
+    "url": "https://github.com/maruniko1118/whiteboard/issues"
+  },
+  "homepage": "https://github.com/maruniko1118/whiteboard#readme",
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.4"
+  },
+  "devDependencies": {
+    "@hono/vite-dev-server": "^0.26.1",
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}
