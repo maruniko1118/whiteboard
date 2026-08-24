@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "tsx src/server.ts",
+    "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
   "bugs": {
@@ -14,14 +14,15 @@
   },
   "homepage": "https://github.com/maruniko1118/whiteboard#readme",
   "dependencies": {
-    "@hono/node-server": "^2.1.1",
     "hono": "^4.13.4"
   },
   "devDependencies": {
-    "@hono/vite-dev-server": "^0.26.1",
-    "@types/node": "^26.2.0",
-    "tsx": "^4.23.12",
+    "@cloudflare/vite-plugin": "^1.53.1",
+    "@cloudflare/workers-types": "^5.20260823.1",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "wrangler": "^4.125.0"
   }
 }
+
+

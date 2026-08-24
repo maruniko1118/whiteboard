@@ -1,0 +1,6 @@
+name = "whiteboard"
+main = "src/server.ts"
+compatibility_date = "2026-08-24"
+
+# 静的ファイル（public/ 以下）を Workers Static Assets として配信
+assets = { directory = "public" }

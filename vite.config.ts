@@ -1,17 +1,13 @@
+import { cloudflare } from '@cloudflare/vite-plugin'
 import { defineConfig } from 'vite'
-import devServer from '@hono/vite-dev-server'
 
 export default defineConfig({
-  plugins: [
-    devServer({
-      entry: 'src/server.ts',
-      exclude: [/^\/(css|js|favicon\.ico|.*\.(png|jpg|svg|json|css|js))($|\?.*)/]
-    })
-  ],
+  plugins: [cloudflare()],
   server: {
     port: 3000,
-    open: false
-  },
-  publicDir: 'public'
+    open: false,
+    cors: false // Hono 側の CORS と競合しないよう無効化
+  }
 })
+
 
