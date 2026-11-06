@@ -191,6 +191,15 @@ html, body {
   pointer-events: none;
 }
 
+/* Clip Material Web <md-ripple> strictly to its parent button's shape */
+md-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 .app-container {
   display: flex;
   flex-direction: column;
@@ -239,14 +248,7 @@ html, body {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  transition: transform 0.35s var(--md-sys-motion-spring-fast-spatial),
-              border-radius 0.35s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.25s ease;
-}
-
-.m3-brand-mark:hover {
-  transform: scale(1.06) rotate(-4deg);
-  border-radius: 18px;
+  transition: background-color 0.2s ease;
 }
 
 .m3-brand-mark .m3-svg-icon {
@@ -283,7 +285,8 @@ html, body {
 /* M3 Expressive Tab:
    - Displays 100% of the board name without '...' truncation!
    - Identical font-weight (600), padding, and border-width between active and inactive states,
-     so switching tabs NEVER shifts any tab's width or position! */
+     so switching tabs NEVER shifts any tab's width or position!
+   - Concrete 20px pill radius instead of 9999px prevents negative radius overshoot to 0px square! */
 .m3-board-tab {
   position: relative;
   width: max-content;
@@ -293,18 +296,18 @@ html, body {
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 20px;
   background-color: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface-variant);
   border: 1.5px solid var(--md-sys-color-outline-variant);
   cursor: pointer;
+  overflow: hidden;
   white-space: nowrap;
-  transition: background-color 0.2s ease,
-              color 0.2s ease,
-              border-color 0.2s ease,
-              border-radius 0.4s var(--md-sys-motion-spring-fast-spatial),
-              transform 0.3s var(--md-sys-motion-spring-fast-spatial),
-              box-shadow 0.2s ease;
+  transition: background-color 0.18s ease,
+              color 0.18s ease,
+              border-color 0.18s ease,
+              border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 0.18s ease;
 }
 
 .m3-board-tab:hover:not(.active) {
@@ -313,9 +316,9 @@ html, body {
   border-color: var(--md-sys-color-outline);
 }
 
-/* Active Tab: M3 Expressive Shape Morph (Full Pill -> Squircle 14px) + High Contrast Tonal Fill */
+/* Active Tab: M3 Expressive Squircle (12px) + High Contrast Tonal Fill */
 .m3-board-tab.active {
-  border-radius: 14px;
+  border-radius: 12px;
   background-color: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
   border-color: var(--md-sys-color-primary);
@@ -382,7 +385,7 @@ html, body {
   height: 36px;
   min-width: 118px;
   padding: 0 12px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 18px;
   background-color: var(--md-sys-color-surface-container-low);
   border: 1px solid var(--md-sys-color-outline-variant);
   color: var(--md-sys-color-on-surface-variant);
@@ -410,7 +413,7 @@ html, body {
 }
 
 /* ==========================================================================
-   M3 Expressive Buttons & Icon Buttons
+   M3 Expressive Buttons & Icon Buttons (Calm Hover, Zero Square Flash)
    ========================================================================== */
 
 .m3-icon-btn,
@@ -419,7 +422,7 @@ html, body {
   width: 38px;
   height: 38px;
   flex: 0 0 38px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 19px;
   border: 1px solid var(--md-sys-color-outline-variant);
   background-color: var(--md-sys-color-surface-container-low);
   color: var(--md-sys-color-on-surface-variant);
@@ -428,11 +431,10 @@ html, body {
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  transition: border-radius 0.35s var(--md-sys-motion-spring-fast-spatial),
-              transform 0.3s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease,
-              color 0.2s ease,
-              border-color 0.2s ease;
+  transition: background-color 0.18s ease,
+              color 0.18s ease,
+              border-color 0.18s ease,
+              transform 0.12s ease;
 }
 
 .m3-tonal-icon-btn {
@@ -443,7 +445,6 @@ html, body {
 
 .m3-icon-btn:hover,
 .m3-tonal-icon-btn:hover {
-  border-radius: 14px;
   background-color: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
   border-color: var(--md-sys-color-primary);
@@ -457,15 +458,14 @@ html, body {
 
 .m3-icon-btn:active,
 .m3-tonal-icon-btn:active {
-  transform: scale(0.93);
-  border-radius: 10px;
+  transform: scale(0.95);
 }
 
 .m3-tonal-btn {
   position: relative;
   height: 38px;
   padding: 0 14px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 19px;
   border: none;
   background-color: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
@@ -480,20 +480,18 @@ html, body {
   overflow: hidden;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: border-radius 0.35s var(--md-sys-motion-spring-fast-spatial),
-              transform 0.3s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease,
-              color 0.2s ease;
+  transition: background-color 0.18s ease,
+              color 0.18s ease,
+              transform 0.12s ease;
 }
 
 .m3-tonal-btn:hover {
-  border-radius: 14px;
   background-color: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
 }
 
 .m3-tonal-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .m3-tonal-btn .m3-svg-icon {
@@ -516,7 +514,7 @@ html, body {
 }
 
 /* ==========================================================================
-   Main Canvas Area
+   Main Canvas Area & M3 Zoom HUD
    ========================================================================== */
 
 .canvas-container {
@@ -530,6 +528,10 @@ html, body {
   transition: background-color 0.25s ease;
 }
 
+.canvas-container.is-panning {
+  cursor: grabbing;
+}
+
 canvas#whiteboard-canvas {
   position: absolute;
   top: 0;
@@ -540,8 +542,79 @@ canvas#whiteboard-canvas {
   touch-action: none;
 }
 
+/* Floating Zoom / Pan HUD Pill */
+.m3-zoom-hud {
+  position: absolute;
+  bottom: max(20px, env(safe-area-inset-bottom, 20px));
+  right: 16px;
+  height: 38px;
+  padding: 0 4px;
+  border-radius: 19px;
+  background-color: color-mix(in srgb, var(--md-sys-color-surface-container-high) 94%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--md-sys-color-outline-variant);
+  box-shadow: var(--elevation-floating);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 18;
+  user-select: none;
+}
+
+.m3-zoom-btn {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.m3-zoom-btn:hover {
+  background-color: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface);
+}
+
+.m3-zoom-btn .m3-svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.m3-zoom-readout-btn {
+  position: relative;
+  height: 30px;
+  min-width: 52px;
+  padding: 0 8px;
+  border-radius: 15px;
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.m3-zoom-readout-btn:hover {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
 /* ==========================================================================
-   M3 Expressive Floating Toolbar
+   M3 Expressive Floating Toolbar (width: max-content prevents text overlap!)
    ========================================================================== */
 
 .m3-floating-toolbar {
@@ -549,11 +622,12 @@ canvas#whiteboard-canvas {
   bottom: max(20px, env(safe-area-inset-bottom, 20px));
   left: 50%;
   transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 24px);
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  max-width: calc(100vw - 24px);
   background-color: color-mix(in srgb, var(--md-sys-color-surface-container-high) 94%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -568,12 +642,14 @@ canvas#whiteboard-canvas {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .m3-toolbar-group {
   display: flex;
   align-items: center;
   gap: 5px;
+  flex-shrink: 0;
 }
 
 .m3-toolbar-divider {
@@ -585,12 +661,14 @@ canvas#whiteboard-canvas {
   flex-shrink: 0;
 }
 
-/* Tool Buttons (Pen / Eraser / Undo / Redo / Clear) with M3 Expressive Shape Morphing */
+/* Tool Buttons (Pen / Eraser / Undo / Redo / Clear)
+   - Concrete 20px pill radius instead of 9999px prevents negative radius overshoot to 0px square!
+   - Calm hover color transition without changing border-radius on hover! */
 .m3-tool-btn {
   position: relative;
   height: 40px;
   padding: 0 13px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 20px;
   background-color: transparent;
   border: 1.5px solid transparent;
   color: var(--md-sys-color-on-surface-variant);
@@ -604,11 +682,12 @@ canvas#whiteboard-canvas {
   cursor: pointer;
   overflow: hidden;
   flex-shrink: 0;
-  transition: border-radius 0.4s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease,
-              color 0.2s ease,
-              border-color 0.2s ease,
-              transform 0.3s var(--md-sys-motion-spring-fast-spatial);
+  white-space: nowrap;
+  transition: border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.18s ease,
+              color 0.18s ease,
+              border-color 0.18s ease,
+              transform 0.12s ease;
 }
 
 .m3-tool-btn .tool-icon-wrap {
@@ -618,15 +697,19 @@ canvas#whiteboard-canvas {
   flex-shrink: 0;
 }
 
+.m3-tool-btn .tool-label {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .m3-tool-btn:hover:not(:disabled):not(.active) {
   background-color: var(--md-sys-color-surface-container-highest);
   color: var(--md-sys-color-on-surface);
-  border-radius: 16px;
 }
 
-/* Expressive Active State: Pill morphs into 14px Squircle with Primary Fill */
+/* Expressive Active State: Pill (20px) morphs smoothly into 12px Squircle with Primary Fill */
 .m3-tool-btn.active {
-  border-radius: 14px;
+  border-radius: 12px;
   background-color: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
   font-weight: 700;
@@ -634,7 +717,7 @@ canvas#whiteboard-canvas {
 }
 
 .m3-tool-btn:active:not(:disabled) {
-  transform: scale(0.92);
+  transform: scale(0.95);
 }
 
 .m3-tool-btn:disabled {
@@ -646,12 +729,12 @@ canvas#whiteboard-canvas {
   width: 38px;
   height: 38px;
   padding: 0;
+  border-radius: 19px;
 }
 
 .m3-tool-btn.danger-hover:hover:not(:disabled) {
   background-color: var(--md-sys-color-error-container);
   color: var(--md-sys-color-on-error-container);
-  border-radius: 14px;
 }
 
 /* ==========================================================================
@@ -668,7 +751,7 @@ canvas#whiteboard-canvas {
   height: 34px;
   flex: 0 0 34px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 17px;
   background: transparent;
   border: 2px solid transparent;
   display: inline-flex;
@@ -676,14 +759,13 @@ canvas#whiteboard-canvas {
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.35s var(--md-sys-motion-spring-fast-spatial),
-              border-radius 0.35s var(--md-sys-motion-spring-fast-spatial),
-              border-color 0.2s ease,
-              background-color 0.2s ease;
+  transition: border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              border-color 0.18s ease,
+              background-color 0.18s ease;
 }
 
-.color-btn:hover {
-  transform: scale(1.12);
+.color-btn:hover:not(.active) {
+  background-color: var(--md-sys-color-surface-container-highest);
 }
 
 /* Active Color Button morphs into M3 Expressive Squircle */
@@ -691,21 +773,19 @@ canvas#whiteboard-canvas {
   border-radius: 11px;
   border-color: var(--md-sys-color-primary);
   background-color: var(--md-sys-color-primary-container);
-  transform: scale(1.06);
 }
 
 .color-swatch {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: 11px;
   border: 1.5px solid rgba(0, 0, 0, 0.18);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: border-radius 0.35s var(--md-sys-motion-spring-fast-spatial),
-              transform 0.35s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease;
+  transition: border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.18s ease;
 }
 
 .color-btn.active .color-swatch {
@@ -718,7 +798,7 @@ canvas#whiteboard-canvas {
   color: #ffffff;
   opacity: 0;
   transform: scale(0.4);
-  transition: opacity 0.2s ease, transform 0.35s var(--md-sys-motion-spring-fast-spatial);
+  transition: opacity 0.18s ease, transform 0.25s cubic-bezier(0.2, 0, 0, 1);
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
@@ -783,7 +863,7 @@ canvas#whiteboard-canvas {
   width: 34px;
   height: 34px;
   flex: 0 0 34px;
-  border-radius: 50%;
+  border-radius: 17px;
   background: transparent;
   border: 1.5px solid transparent;
   display: inline-flex;
@@ -791,15 +871,13 @@ canvas#whiteboard-canvas {
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  transition: border-radius 0.35s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease,
-              border-color 0.2s ease,
-              transform 0.3s var(--md-sys-motion-spring-fast-spatial);
+  transition: border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.18s ease,
+              border-color 0.18s ease;
 }
 
-.width-btn:hover {
+.width-btn:hover:not(.active) {
   background-color: var(--md-sys-color-surface-container-highest);
-  border-radius: 11px;
 }
 
 .width-btn.active {
@@ -828,7 +906,7 @@ canvas#whiteboard-canvas {
   height: 34px;
   min-width: 52px;
   padding: 0 10px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 17px;
   background-color: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
   border: 1.5px solid var(--md-sys-color-outline-variant);
@@ -842,12 +920,19 @@ canvas#whiteboard-canvas {
   cursor: pointer;
   overflow: hidden;
   flex-shrink: 0;
-  transition: border-radius 0.3s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease,
-              border-color 0.2s ease;
+  white-space: nowrap;
+  transition: border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.18s ease,
+              color 0.18s ease,
+              border-color 0.18s ease;
 }
 
-.m3-width-pill-btn:hover,
+.m3-width-pill-btn:hover {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border-color: var(--md-sys-color-primary);
+}
+
 .m3-width-pill-btn[aria-expanded="true"] {
   border-radius: 11px;
   background-color: var(--md-sys-color-primary-container);
@@ -879,9 +964,9 @@ canvas#whiteboard-canvas {
   max-width: calc(100vw - 24px);
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.92);
+  transform: scale(0.94);
   transition: opacity 0.18s ease,
-              transform 0.38s var(--md-sys-motion-spring-fast-spatial);
+              transform 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .m3-popover.open {
@@ -937,7 +1022,7 @@ canvas#whiteboard-canvas {
   position: relative;
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: 14px;
   border: none;
   background: transparent;
   color: var(--md-sys-color-on-surface-variant);
@@ -946,6 +1031,7 @@ canvas#whiteboard-canvas {
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
+  transition: background-color 0.16s ease, color 0.16s ease;
 }
 
 .m3-mini-icon-btn:hover {
@@ -1002,7 +1088,7 @@ canvas#whiteboard-canvas {
   appearance: none;
   width: 100%;
   height: 14px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 7px;
   background: linear-gradient(
     to right,
     #ff0000 0%,
@@ -1095,6 +1181,7 @@ canvas#whiteboard-canvas {
   cursor: pointer;
   overflow: hidden;
   flex-shrink: 0;
+  transition: background-color 0.16s ease;
 }
 
 .m3-tonal-sm-btn .m3-svg-icon {
@@ -1129,13 +1216,11 @@ canvas#whiteboard-canvas {
   border: 1.5px solid rgba(0, 0, 0, 0.18);
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.25s var(--md-sys-motion-spring-fast-spatial),
-              border-radius 0.25s var(--md-sys-motion-spring-fast-spatial);
+  transition: border-color 0.16s ease;
 }
 
 .m3-saved-swatch:hover {
-  transform: scale(1.12);
-  border-radius: 8px;
+  border-color: var(--md-sys-color-primary);
 }
 
 .m3-saved-swatch.active {
@@ -1186,7 +1271,7 @@ canvas#whiteboard-canvas {
   position: relative;
   height: 32px;
   padding: 0 4px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 16px;
   border: 1.5px solid var(--md-sys-color-outline-variant);
   background-color: var(--md-sys-color-surface-container-low);
   color: var(--md-sys-color-on-surface-variant);
@@ -1198,10 +1283,15 @@ canvas#whiteboard-canvas {
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  transition: border-radius 0.3s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease,
-              color 0.2s ease,
-              border-color 0.2s ease;
+  transition: border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.18s ease,
+              color 0.18s ease,
+              border-color 0.18s ease;
+}
+
+.m3-width-chip:hover:not(.active) {
+  background-color: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface);
 }
 
 .m3-width-chip.active {
@@ -1232,23 +1322,22 @@ md-slider {
   position: relative;
   width: 34px;
   height: 34px;
-  border-radius: 50%;
+  border-radius: 17px;
   border: 2px solid transparent;
   background-color: var(--seed-preview);
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.3s var(--md-sys-motion-spring-fast-spatial),
-              border-radius 0.3s var(--md-sys-motion-spring-fast-spatial);
+  transition: border-radius 0.22s cubic-bezier(0.2, 0, 0, 1),
+              border-color 0.18s ease;
 }
 
-.m3-seed-swatch:hover {
-  transform: scale(1.14);
+.m3-seed-swatch:hover:not(.active) {
+  border-color: var(--md-sys-color-outline);
 }
 
 .m3-seed-swatch.active {
   border-radius: 11px;
   border-color: var(--md-sys-color-on-surface);
-  transform: scale(1.1);
 }
 
 /* Backup Menu Items */
@@ -1375,7 +1464,7 @@ md-slider {
   position: relative;
   height: 40px;
   padding: 0 18px;
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 20px;
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
@@ -1385,7 +1474,9 @@ md-slider {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: border-radius 0.3s var(--md-sys-motion-spring-fast-spatial);
+  transition: background-color 0.18s ease,
+              filter 0.18s ease,
+              transform 0.12s ease;
 }
 
 .m3-text-btn {
@@ -1395,7 +1486,6 @@ md-slider {
 
 .m3-text-btn:hover {
   background-color: var(--md-sys-color-surface-container-highest);
-  border-radius: 12px;
 }
 
 .m3-filled-primary-btn {
@@ -1404,7 +1494,7 @@ md-slider {
 }
 
 .m3-filled-primary-btn:hover {
-  border-radius: 12px;
+  filter: brightness(1.06);
 }
 
 .m3-filled-danger-btn {
@@ -1413,7 +1503,7 @@ md-slider {
 }
 
 .m3-filled-danger-btn:hover {
-  border-radius: 12px;
+  filter: brightness(1.06);
 }
 
 /* M3 Expressive Snackbar */
@@ -1434,7 +1524,7 @@ md-slider {
   transform: translateY(-12px) scale(0.94);
   pointer-events: none;
   transition: opacity 0.2s ease,
-              transform 0.38s var(--md-sys-motion-spring-fast-spatial);
+              transform 0.28s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .m3-snackbar.show {
@@ -1445,6 +1535,14 @@ md-slider {
 /* ==========================================================================
    Tablet & Mobile Responsive Design
    ========================================================================== */
+
+@media (max-width: 1120px) {
+  /* Move zoom HUD above toolbar when screen is narrower so it never collides with the centered toolbar */
+  .m3-zoom-hud {
+    bottom: 84px;
+    right: 12px;
+  }
+}
 
 @media (max-width: 960px) {
   .m3-save-chip .status-text,
@@ -1529,6 +1627,7 @@ md-slider {
   .m3-board-tab {
     height: 36px;
     padding: 0 13px;
+    border-radius: 18px;
   }
 
   .m3-tab-title {
@@ -1539,6 +1638,25 @@ md-slider {
     width: 34px !important;
     height: 34px !important;
     flex: 0 0 34px !important;
+  }
+
+  /* Zoom HUD positioned cleanly at top-right of canvas on mobile so it never overlaps 2-row toolbar */
+  .m3-zoom-hud {
+    top: 10px;
+    bottom: auto;
+    right: 10px;
+    height: 34px;
+  }
+
+  .m3-zoom-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .m3-zoom-readout-btn {
+    height: 28px;
+    min-width: 46px;
+    font-size: 11px;
   }
 
   /* 2-Row Mobile Floating Toolbar Dock — Zero Overflow Guaranteed */
@@ -1580,12 +1698,14 @@ md-slider {
     width: 38px;
     height: 36px;
     padding: 0;
+    border-radius: 18px;
   }
 
   .m3-tool-btn.action-btn {
     width: 36px;
     height: 36px;
     padding: 0;
+    border-radius: 18px;
   }
 
   .m3-width-pill-btn {

@@ -130,6 +130,19 @@
     <main class="canvas-container" id="canvas-container">
       <canvas id="whiteboard-canvas"></canvas>
 
+      <!-- Canvas Zoom & Pan HUD (Right-click drag / Two-finger pan & Ctrl+Wheel / Pinch zoom) -->
+      <div class="m3-zoom-hud" id="zoom-hud" role="group" aria-label="表示倍率と位置リセット">
+        <button type="button" id="zoom-out-btn" class="m3-zoom-btn" title="縮小 (Ctrl + ホイール下)" aria-label="縮小">
+          <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+        </button>
+        <button type="button" id="zoom-reset-btn" class="m3-zoom-readout-btn" title="100%・初期位置にリセット (右クリックドラッグ / 2本指で移動)" aria-label="表示倍率リセット">
+          <span id="zoom-level-text">100%</span>
+        </button>
+        <button type="button" id="zoom-in-btn" class="m3-zoom-btn" title="拡大 (Ctrl + ホイール上)" aria-label="拡大">
+          <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        </button>
+      </div>
+
       <!-- Material 3 Expressive Floating Toolbar Dock -->
       <nav class="m3-floating-toolbar" id="floating-toolbar" aria-label="描画ツールバー">
         <!-- Row 1 on Mobile / Left-Center on Desktop: Tools, Width & History -->

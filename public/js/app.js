@@ -33,7 +33,8 @@ class WhiteboardApp {
     // Initialize Canvas Engine
     this.canvasEngine = new WhiteboardCanvas(this.canvasElement, this.canvasContainer, {
       theme: this.theme,
-      onStateChange: (state) => this.handleCanvasStateChange(state)
+      onStateChange: (state) => this.handleCanvasStateChange(state),
+      onViewportChange: (vp) => this.updateZoomUI(vp)
     });
 
     // Load Initial Active Board
@@ -238,6 +239,28 @@ class WhiteboardApp {
     const exportBtn = document.getElementById('export-png-btn');
     if (exportBtn) {
       exportBtn.addEventListener('click', () => this.exportPng());
+    }
+
+    // Zoom / Pan HUD Controls
+    const zoomInBtn = document.getElementById('zoom-in-btn');
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const zoomResetBtn = document.getElementById('zoom-reset-btn');
+
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => {
+        this.canvasEngine.zoomAt(1.25);
+      });
+    }
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => {
+        this.canvasEngine.zoomAt(0.8);
+      });
+    }
+    if (zoomResetBtn) {
+      zoomResetBtn.addEventListener('click', () => {
+        this.canvasEngine.resetViewport();
+        this.showToast('表示倍率・位置をリセットしました (100%)');
+      });
     }
 
     // Unified Board Tab Controls: Add / Rename / Duplicate / Delete
@@ -689,8 +712,8 @@ class WhiteboardApp {
       if (isMatch) {
         this.safeAnimate(
           btn,
-          { scale: [0.85, 1.06] },
-          { type: 'spring', stiffness: 520, damping: 20 }
+          { scale: [0.88, 1] },
+          { type: 'spring', stiffness: 520, damping: 24 }
         );
       }
     });
@@ -745,6 +768,16 @@ class WhiteboardApp {
     if (liveDot) {
       liveDot.style.width = `${width}px`;
       liveDot.style.height = `${width}px`;
+    }
+  }
+
+  /**
+   * Update Zoom HUD Readout
+   */
+  updateZoomUI(vp) {
+    const zoomText = document.getElementById('zoom-level-text');
+    if (zoomText && vp) {
+      zoomText.textContent = `${Math.round(vp.scale * 100)}%`;
     }
   }
 
@@ -1003,6 +1036,24 @@ class WhiteboardApp {
     if (isCtrlOrCmd && e.key.toLowerCase() === 'y') {
       e.preventDefault();
       this.canvasEngine.redo();
+      return;
+    }
+
+    if (isCtrlOrCmd && (e.key === '=' || e.key === '+')) {
+      e.preventDefault();
+      this.canvasEngine.zoomAt(1.25);
+      return;
+    }
+
+    if (isCtrlOrCmd && e.key === '-') {
+      e.preventDefault();
+      this.canvasEngine.zoomAt(0.8);
+      return;
+    }
+
+    if (isCtrlOrCmd && e.key === '0') {
+      e.preventDefault();
+      this.canvasEngine.resetViewport();
       return;
     }
 

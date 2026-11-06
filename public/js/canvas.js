@@ -40,8 +40,25 @@ export class WhiteboardCanvas {
     this.currentWidth = 5; // 1..48
     this.theme = options.theme || 'light';
 
-    // State
+    // Viewport Pan & Zoom State
+    this.panX = 0;
+    this.panY = 0;
+    this.scale = 1;
+    this.minScale = 0.2;
+    this.maxScale = 5.0;
+
+    // Interaction State
     this.isDrawing = false;
+    this.isPanning = false;
+    this.panPointerId = null;
+    this.panLastClient = { x: 0, y: 0 };
+
+    // Multi-touch Gesture State (for Smartphone 2-finger Pan & Pinch-to-Zoom)
+    this.activePointers = new Map();
+    this.isTouchGesturing = false;
+    this.lastGestureMid = null;
+    this.lastGestureDist = 0;
+
     this.currentStroke = null;
     this.strokes = [];
     this.undoStack = [];
@@ -49,10 +66,12 @@ export class WhiteboardCanvas {
 
     // Callbacks
     this.onStateChange = options.onStateChange || (() => {});
+    this.onViewportChange = options.onViewportChange || (() => {});
 
     // Init Canvas & Listeners
     this.setupCanvasSize();
     this.attachEventListeners();
+    this.updateGridBackground();
   }
 
   /**
@@ -72,6 +91,54 @@ export class WhiteboardCanvas {
 
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(this.dpr, this.dpr);
+    this.redrawAll();
+  }
+
+  /**
+   * Synchronize the container's dot grid with current pan & zoom
+   */
+  updateGridBackground() {
+    if (!this.container) return;
+    const gridSize = 24 * this.scale;
+    this.container.style.backgroundSize = `${gridSize}px ${gridSize}px`;
+    this.container.style.backgroundPosition = `${this.panX}px ${this.panY}px`;
+    this.onViewportChange({
+      panX: this.panX,
+      panY: this.panY,
+      scale: this.scale
+    });
+  }
+
+  /**
+   * Zoom around a specific client (screen) coordinate or canvas center
+   */
+  zoomAt(factor, clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    const cx = clientX !== undefined ? clientX - rect.left : this.width / 2;
+    const cy = clientY !== undefined ? clientY - rect.top : this.height / 2;
+
+    const nextScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * factor));
+    if (Math.abs(nextScale - this.scale) < 0.0001) return;
+
+    const worldX = (cx - this.panX) / this.scale;
+    const worldY = (cy - this.panY) / this.scale;
+
+    this.scale = nextScale;
+    this.panX = cx - worldX * this.scale;
+    this.panY = cy - worldY * this.scale;
+
+    this.updateGridBackground();
+    this.redrawAll();
+  }
+
+  /**
+   * Reset viewport pan & zoom to 100% (1.0)
+   */
+  resetViewport() {
+    this.panX = 0;
+    this.panY = 0;
+    this.scale = 1;
+    this.updateGridBackground();
     this.redrawAll();
   }
 
@@ -108,12 +175,16 @@ export class WhiteboardCanvas {
     this.strokes = boardData.strokes || [];
     this.undoStack = boardData.undoStack || [];
     this.redoStack = boardData.redoStack || [];
+    this.panX = 0;
+    this.panY = 0;
+    this.scale = 1;
+    this.updateGridBackground();
     this.redrawAll();
     this.notifyStateChange({ isBoardLoad: true });
   }
 
   /**
-   * Attach Pointer and Touch events
+   * Attach Pointer, Wheel, ContextMenu, and Touch events
    */
   attachEventListeners() {
     const resizeObserver = new ResizeObserver(() => {
@@ -121,27 +192,117 @@ export class WhiteboardCanvas {
     });
     resizeObserver.observe(this.container);
 
+    // Prevent browser context menu on right-click so right-click drag pans smoothly
+    this.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+
     this.canvas.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
     this.canvas.addEventListener('pointermove', (e) => this.handlePointerMove(e));
     window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
     window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
 
+    // Ctrl + Mouse Wheel Zoom (and Trackpad Pinch / Two-finger scroll)
+    this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+
     this.canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
     this.canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   }
 
+  /**
+   * Convert screen pointer event to canvas world coordinates
+   */
   getPointerPos(e) {
     const rect = this.canvas.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: (screenX - this.panX) / this.scale,
+      y: (screenY - this.panY) / this.scale,
       pressure: e.pressure || 0.5
     };
   }
 
+  /**
+   * Compute midpoint and distance between first two active touch pointers
+   */
+  getTwoTouchMetrics() {
+    const pts = Array.from(this.activePointers.values());
+    if (pts.length < 2) return null;
+    const p1 = pts[0];
+    const p2 = pts[1];
+    const midX = (p1.x + p2.x) / 2;
+    const midY = (p1.y + p2.y) / 2;
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    return { midX, midY, dist };
+  }
+
+  /**
+   * Handle Mouse Wheel:
+   * - Ctrl + Wheel (or Meta + Wheel): Smooth Zoom centered at cursor
+   * - Wheel without Ctrl: Pan canvas
+   */
+  handleWheel(e) {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      const zoomFactor = Math.exp(-e.deltaY * 0.0025);
+      this.zoomAt(zoomFactor, e.clientX, e.clientY);
+    } else {
+      this.panX -= e.deltaX;
+      this.panY -= e.deltaY;
+      this.updateGridBackground();
+      this.redrawAll();
+    }
+  }
+
   handlePointerDown(e) {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    this.canvas.setPointerCapture(e.pointerId);
+    // 1. Desktop Mouse Right-Click (button === 2) or Middle-Click (button === 1) -> Pan Canvas
+    if (e.pointerType === 'mouse' && (e.button === 2 || e.button === 1)) {
+      e.preventDefault();
+      this.isPanning = true;
+      this.panPointerId = e.pointerId;
+      this.panLastClient = { x: e.clientX, y: e.clientY };
+      this.container.classList.add('is-panning');
+      try {
+        this.canvas.setPointerCapture(e.pointerId);
+      } catch (_) {}
+      return;
+    }
+
+    // 2. Smartphone / Tablet Touch Tracking (1 finger = draw, 2 fingers = pan + pinch zoom)
+    if (e.pointerType === 'touch') {
+      this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try {
+        this.canvas.setPointerCapture(e.pointerId);
+      } catch (_) {}
+
+      if (this.activePointers.size >= 2) {
+        // Cancel an accidental 1-finger stroke that just started right before the 2nd finger touched down
+        if (this.isDrawing) {
+          this.isDrawing = false;
+          if (this.currentStroke && this.currentStroke.points.length <= 6) {
+            this.currentStroke = null;
+            this.redrawAll();
+          } else if (this.currentStroke && this.currentStroke.points.length > 6) {
+            this.commitCurrentStroke();
+          }
+        }
+        this.isTouchGesturing = true;
+        const metrics = this.getTwoTouchMetrics();
+        if (metrics) {
+          this.lastGestureMid = { x: metrics.midX, y: metrics.midY };
+          this.lastGestureDist = metrics.dist;
+        }
+        return;
+      }
+    }
+
+    // Ignore non-left mouse clicks
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+    } catch (_) {}
 
     const pos = this.getPointerPos(e);
     this.isDrawing = true;
@@ -159,16 +320,63 @@ export class WhiteboardCanvas {
   }
 
   handlePointerMove(e) {
+    // 1. Desktop Right-Click / Middle-Click Panning
+    if (this.isPanning && e.pointerId === this.panPointerId) {
+      const dx = e.clientX - this.panLastClient.x;
+      const dy = e.clientY - this.panLastClient.y;
+      this.panLastClient = { x: e.clientX, y: e.clientY };
+      this.panX += dx;
+      this.panY += dy;
+      this.updateGridBackground();
+      this.redrawAll();
+      return;
+    }
+
+    // 2. Smartphone 2-Finger Pan & Pinch-to-Zoom
+    if (e.pointerType === 'touch' && this.activePointers.has(e.pointerId)) {
+      this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (this.isTouchGesturing && this.activePointers.size >= 2) {
+        const metrics = this.getTwoTouchMetrics();
+        if (metrics && this.lastGestureMid) {
+          const rect = this.canvas.getBoundingClientRect();
+          const midCanvasX = metrics.midX - rect.left;
+          const midCanvasY = metrics.midY - rect.top;
+
+          // Pan by midpoint delta
+          const dx = metrics.midX - this.lastGestureMid.x;
+          const dy = metrics.midY - this.lastGestureMid.y;
+          this.panX += dx;
+          this.panY += dy;
+
+          // Pinch-to-zoom around midpoint
+          if (this.lastGestureDist > 8 && metrics.dist > 8) {
+            const factor = metrics.dist / this.lastGestureDist;
+            const nextScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * factor));
+            const worldX = (midCanvasX - this.panX) / this.scale;
+            const worldY = (midCanvasY - this.panY) / this.scale;
+            this.scale = nextScale;
+            this.panX = midCanvasX - worldX * this.scale;
+            this.panY = midCanvasY - worldY * this.scale;
+          }
+
+          this.lastGestureMid = { x: metrics.midX, y: metrics.midY };
+          this.lastGestureDist = metrics.dist;
+          this.updateGridBackground();
+          this.redrawAll();
+        }
+        return;
+      }
+    }
+
+    // 3. Standard Drawing (Pen / Eraser)
     if (!this.isDrawing || !this.currentStroke) return;
     const pos = this.getPointerPos(e);
     this.currentStroke.points.push(pos);
     this.renderStrokeIncremental(this.currentStroke);
   }
 
-  handlePointerUp() {
-    if (!this.isDrawing) return;
-    this.isDrawing = false;
-
+  commitCurrentStroke() {
     if (this.currentStroke && this.currentStroke.points.length > 0) {
       this.undoStack.push([...this.strokes]);
       if (this.undoStack.length > 50) this.undoStack.shift();
@@ -181,8 +389,33 @@ export class WhiteboardCanvas {
     this.currentStroke = null;
   }
 
+  handlePointerUp(e) {
+    if (e && this.isPanning && e.pointerId === this.panPointerId) {
+      this.isPanning = false;
+      this.panPointerId = null;
+      this.container.classList.remove('is-panning');
+      return;
+    }
+
+    if (e && e.pointerType === 'touch') {
+      this.activePointers.delete(e.pointerId);
+      if (this.activePointers.size < 2) {
+        this.lastGestureMid = null;
+        this.lastGestureDist = 0;
+      }
+      if (this.activePointers.size === 0) {
+        this.isTouchGesturing = false;
+      }
+    }
+
+    if (!this.isDrawing) return;
+    this.isDrawing = false;
+    this.commitCurrentStroke();
+  }
+
   /**
    * Draw a full single stroke path with smooth Bézier curve interpolation
+   * (Assumes caller has already applied world transform panX/panY/scale to ctx)
    */
   drawSingleStroke(ctx, stroke) {
     if (!stroke || !stroke.points || stroke.points.length === 0) return;
@@ -240,11 +473,12 @@ export class WhiteboardCanvas {
 
     if (stroke.tool === 'eraser') {
       this.redrawAll();
-      this.drawSingleStroke(this.ctx, stroke);
       return;
     }
 
     this.ctx.save();
+    this.ctx.translate(this.panX, this.panY);
+    this.ctx.scale(this.scale, this.scale);
     this.ctx.globalCompositeOperation = 'source-over';
     this.ctx.strokeStyle = this.resolveColor(stroke);
     this.ctx.lineWidth = stroke.width;
@@ -273,14 +507,23 @@ export class WhiteboardCanvas {
   }
 
   renderStrokeLive(stroke) {
+    this.ctx.save();
+    this.ctx.translate(this.panX, this.panY);
+    this.ctx.scale(this.scale, this.scale);
     this.drawSingleStroke(this.ctx, stroke);
+    this.ctx.restore();
   }
 
   /**
-   * Redraw all committed strokes on the canvas
+   * Redraw all committed strokes on the canvas with current viewport pan & scale
    */
   redrawAll() {
+    if (!this.width || !this.height) return;
     this.ctx.clearRect(0, 0, this.width, this.height);
+
+    this.ctx.save();
+    this.ctx.translate(this.panX, this.panY);
+    this.ctx.scale(this.scale, this.scale);
 
     for (const stroke of this.strokes) {
       this.drawSingleStroke(this.ctx, stroke);
@@ -289,6 +532,8 @@ export class WhiteboardCanvas {
     if (this.isDrawing && this.currentStroke) {
       this.drawSingleStroke(this.ctx, this.currentStroke);
     }
+
+    this.ctx.restore();
   }
 
   /**
@@ -346,7 +591,7 @@ export class WhiteboardCanvas {
   }
 
   /**
-   * Export current canvas as PNG image Blob
+   * Export current canvas view as PNG image Blob
    */
   exportAsPngBlob() {
     const offscreen = document.createElement('canvas');
@@ -362,9 +607,13 @@ export class WhiteboardCanvas {
     offCtx.fillStyle = computedBg || (this.theme === 'dark' ? '#0f131a' : '#ffffff');
     offCtx.fillRect(0, 0, this.width, this.height);
 
+    offCtx.save();
+    offCtx.translate(this.panX, this.panY);
+    offCtx.scale(this.scale, this.scale);
     for (const stroke of this.strokes) {
       this.drawSingleStroke(offCtx, stroke);
     }
+    offCtx.restore();
 
     return new Promise((resolve) => {
       offscreen.toBlob((blob) => {
