@@ -1,3 +1,8 @@
+// Browser-safe process.env shim for motion / Material Web internals
+if (typeof globalThis !== 'undefined' && typeof (globalThis as any).process === 'undefined') {
+  (globalThis as any).process = { env: { NODE_ENV: 'production' } };
+}
+
 // Material Web Components (Material Design 3)
 import '@material/web/ripple/ripple.js';
 import '@material/web/focus/md-focus-ring.js';

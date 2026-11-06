@@ -24,6 +24,8 @@ class WhiteboardApp {
     this.hsv = { h: 256, s: 51, v: 64 };
     this.customHex = '#6750A4';
     this.activePopoverPair = null;
+    this.confirmCallback = null;
+    this.renamingBoard = null;
 
     // Apply M3 Expressive Theme before canvas init
     this.applyTheme(this.theme, false);
@@ -44,6 +46,18 @@ class WhiteboardApp {
     this.renderQuickTabs();
     this.renderCustomSwatches();
     this.updateWidthUI(this.canvasEngine.currentWidth);
+  }
+
+  /**
+   * Safe wrapper around Motion animate() so animation errors never block UI logic
+   */
+  safeAnimate(target, keyframes, options) {
+    if (!target) return;
+    try {
+      animate(target, keyframes, options);
+    } catch (err) {
+      // Ignore animation exceptions so UI interactions always complete
+    }
   }
 
   /**
@@ -82,13 +96,11 @@ class WhiteboardApp {
     if (save) {
       this.storage.setTheme(this.theme);
       const themeBtn = document.getElementById('theme-toggle-btn');
-      if (themeBtn) {
-        animate(
-          themeBtn,
-          { rotate: [-35, 0], scale: [0.82, 1] },
-          { type: 'spring', stiffness: 480, damping: 22 }
-        );
-      }
+      this.safeAnimate(
+        themeBtn,
+        { rotate: [-35, 0], scale: [0.82, 1] },
+        { type: 'spring', stiffness: 480, damping: 22 }
+      );
       this.showToast(this.theme === 'dark' ? 'ダークテーマに切り替えました' : 'ライトテーマに切り替えました');
     }
   }
@@ -137,8 +149,8 @@ class WhiteboardApp {
       });
     });
 
-    // Width Preset Buttons
-    document.querySelectorAll('.width-btn').forEach(btn => {
+    // Width Preset Buttons (Toolbar & Width Popover Chips)
+    document.querySelectorAll('.width-btn, .m3-width-chip').forEach(btn => {
       btn.addEventListener('click', () => {
         const width = Number(btn.dataset.width);
         this.setWidth(width);
@@ -163,10 +175,13 @@ class WhiteboardApp {
     this.setupPopover('theme-seed-btn', 'theme-seed-popover', 'below');
     this.setupPopover('data-menu-btn', 'data-menu-popover', 'below');
 
-    const closeColorPopoverBtn = document.getElementById('close-color-popover-btn');
-    if (closeColorPopoverBtn) {
-      closeColorPopoverBtn.addEventListener('click', () => this.closeAllPopovers());
-    }
+    // Close buttons inside all popovers
+    ['close-color-popover-btn', 'close-width-popover-btn', 'close-seed-popover-btn', 'close-data-popover-btn'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', () => this.closeAllPopovers());
+      }
+    });
 
     // Close popovers when clicking outside
     document.addEventListener('pointerdown', (e) => {
@@ -193,6 +208,7 @@ class WhiteboardApp {
       btn.addEventListener('click', () => {
         if (btn.dataset.seed) {
           this.setSeedColor(btn.dataset.seed);
+          this.closeAllPopovers();
         }
       });
     });
@@ -274,6 +290,67 @@ class WhiteboardApp {
       });
     }
 
+    // Bind Modal Dialog Buttons ONCE (Confirm Dialog & Rename Dialog)
+    const confirmDialog = document.getElementById('confirm-dialog');
+    const dialogCancelBtn = document.getElementById('dialog-cancel-btn');
+    const dialogConfirmBtn = document.getElementById('dialog-confirm-btn');
+
+    if (dialogCancelBtn) {
+      dialogCancelBtn.addEventListener('click', () => {
+        this.confirmCallback = null;
+        if (confirmDialog?.open) confirmDialog.close();
+      });
+    }
+    if (dialogConfirmBtn) {
+      dialogConfirmBtn.addEventListener('click', () => {
+        const cb = this.confirmCallback;
+        this.confirmCallback = null;
+        if (confirmDialog?.open) confirmDialog.close();
+        if (typeof cb === 'function') cb();
+      });
+    }
+    if (confirmDialog) {
+      confirmDialog.addEventListener('click', (e) => {
+        if (e.target === confirmDialog) {
+          this.confirmCallback = null;
+          confirmDialog.close();
+        }
+      });
+    }
+
+    const renameDialog = document.getElementById('rename-dialog');
+    const renameInput = document.getElementById('rename-dialog-input');
+    const renameCancelBtn = document.getElementById('rename-cancel-btn');
+    const renameConfirmBtn = document.getElementById('rename-confirm-btn');
+
+    if (renameCancelBtn) {
+      renameCancelBtn.addEventListener('click', () => {
+        this.renamingBoard = null;
+        if (renameDialog?.open) renameDialog.close();
+      });
+    }
+    if (renameConfirmBtn) {
+      renameConfirmBtn.addEventListener('click', () => {
+        this.commitRenameDialog();
+      });
+    }
+    if (renameInput) {
+      renameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.commitRenameDialog();
+        }
+      });
+    }
+    if (renameDialog) {
+      renameDialog.addEventListener('click', (e) => {
+        if (e.target === renameDialog) {
+          this.renamingBoard = null;
+          renameDialog.close();
+        }
+      });
+    }
+
     // Smooth horizontal wheel scrolling on the tab strip
     const tabStrip = document.getElementById('quick-board-tabs');
     if (tabStrip) {
@@ -287,6 +364,7 @@ class WhiteboardApp {
 
     // Backup Export & Import in Data Menu
     const exportAllBtn = document.getElementById('export-all-btn');
+    const importJsonBtn = document.getElementById('import-json-btn');
     const importFileInput = document.getElementById('import-file-input');
 
     if (exportAllBtn) {
@@ -294,6 +372,12 @@ class WhiteboardApp {
         this.storage.exportJson();
         this.closeAllPopovers();
         this.showToast('全ボードのJSONバックアップを保存しました');
+      });
+    }
+
+    if (importJsonBtn && importFileInput) {
+      importJsonBtn.addEventListener('click', () => {
+        importFileInput.click();
       });
     }
 
@@ -476,6 +560,14 @@ class WhiteboardApp {
         this.showToast(`マイカラー (${this.customHex}) を保存しました`);
       });
     }
+
+    const applyCustomBtn = document.getElementById('apply-custom-color-btn');
+    if (applyCustomBtn) {
+      applyCustomBtn.addEventListener('click', () => {
+        this.setCustomColor(this.customHex, true);
+        this.showToast(`カラー ${this.customHex} を選択しました`);
+      });
+    }
   }
 
   /**
@@ -541,6 +633,7 @@ class WhiteboardApp {
 
     colors.forEach(hex => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       const isSelected =
         this.canvasEngine.currentColorKey === 'custom' &&
         this.customHex.toLowerCase() === hex.toLowerCase();
@@ -560,7 +653,7 @@ class WhiteboardApp {
   /**
    * Set Active Drawing Tool (Pen / Eraser) with M3 Expressive Icon Morph & Spring Physics
    */
-  setTool(tool) {
+  setTool(tool, animateIcon = true) {
     this.canvasEngine.currentTool = tool;
     document.querySelectorAll('.m3-tool-btn[data-tool]').forEach(btn => {
       const isTarget = btn.dataset.tool === tool;
@@ -572,12 +665,12 @@ class WhiteboardApp {
     if (penIconWrap) penIconWrap.innerHTML = getIcon('pen', tool === 'pen');
     if (eraserIconWrap) eraserIconWrap.innerHTML = getIcon('eraser', tool === 'eraser');
 
-    const activeWrap = tool === 'pen' ? penIconWrap : eraserIconWrap;
-    if (activeWrap) {
-      animate(
+    if (animateIcon) {
+      const activeWrap = tool === 'pen' ? penIconWrap : eraserIconWrap;
+      this.safeAnimate(
         activeWrap,
-        { scale: [0.72, 1.14, 1], rotate: [-12, 0] },
-        { type: 'spring', stiffness: 520, damping: 24 }
+        { scale: [0.76, 1], rotate: [-12, 0] },
+        { type: 'spring', stiffness: 520, damping: 20 }
       );
     }
   }
@@ -586,16 +679,18 @@ class WhiteboardApp {
    * Set Preset Pen Color
    */
   setColor(colorKey) {
-    this.setTool('pen');
+    if (this.canvasEngine.currentTool !== 'pen') {
+      this.setTool('pen', true);
+    }
     this.canvasEngine.currentColorKey = colorKey;
     document.querySelectorAll('.color-btn').forEach(btn => {
       const isMatch = btn.dataset.color === colorKey;
       btn.classList.toggle('active', isMatch);
       if (isMatch) {
-        animate(
+        this.safeAnimate(
           btn,
-          { scale: [0.85, 1.12, 1.06] },
-          { type: 'spring', stiffness: 520, damping: 24 }
+          { scale: [0.85, 1.06] },
+          { type: 'spring', stiffness: 520, damping: 20 }
         );
       }
     });
@@ -607,7 +702,9 @@ class WhiteboardApp {
    */
   setCustomColor(hex, closePopover = false) {
     this.customHex = hex.toUpperCase();
-    this.setTool('pen');
+    if (this.canvasEngine.currentTool !== 'pen') {
+      this.setTool('pen', true);
+    }
     this.canvasEngine.currentColorKey = 'custom';
     this.canvasEngine.currentCustomColor = this.customHex;
 
@@ -633,7 +730,7 @@ class WhiteboardApp {
   }
 
   updateWidthUI(width) {
-    document.querySelectorAll('.width-btn').forEach(btn => {
+    document.querySelectorAll('.width-btn, .m3-width-chip').forEach(btn => {
       btn.classList.toggle('active', Number(btn.dataset.width) === width);
     });
 
@@ -673,13 +770,11 @@ class WhiteboardApp {
     clearTimeout(this.saveSettleTimer);
     this.saveSettleTimer = setTimeout(() => {
       const saveIcon = document.getElementById('save-status-icon');
-      if (saveIcon) {
-        animate(
-          saveIcon,
-          { scale: [0.86, 1.12, 1] },
-          { type: 'spring', stiffness: 460, damping: 24 }
-        );
-      }
+      this.safeAnimate(
+        saveIcon,
+        { scale: [0.85, 1] },
+        { type: 'spring', stiffness: 460, damping: 20 }
+      );
     }, 900);
   }
 
@@ -746,54 +841,52 @@ class WhiteboardApp {
    */
   openRenameDialog(board) {
     const dialog = document.getElementById('rename-dialog');
-    const form = document.getElementById('rename-dialog-form');
     const input = document.getElementById('rename-dialog-input');
-    const cancelBtn = document.getElementById('rename-cancel-btn');
 
-    if (!dialog || !form || !input) return;
+    if (!dialog || !input || !board) return;
 
+    this.closeAllPopovers();
+    this.renamingBoard = board;
     input.value = board.title || '';
-    dialog.showModal();
+
+    if (!dialog.open) {
+      dialog.showModal();
+    }
 
     const surface = dialog.querySelector('.m3-dialog-surface');
-    if (surface) {
-      animate(
-        surface,
-        { scale: [0.88, 1], opacity: [0, 1] },
-        { type: 'spring', stiffness: 520, damping: 28 }
-      );
-    }
+    this.safeAnimate(
+      surface,
+      { scale: [0.88, 1], opacity: [0, 1] },
+      { type: 'spring', stiffness: 520, damping: 28 }
+    );
 
     requestAnimationFrame(() => {
       input.focus();
       input.select();
     });
+  }
 
-    const handleCancel = () => {
+  /**
+   * Commit Board Rename from Rename Dialog
+   */
+  commitRenameDialog() {
+    const dialog = document.getElementById('rename-dialog');
+    const input = document.getElementById('rename-dialog-input');
+    const board = this.renamingBoard;
+    this.renamingBoard = null;
+
+    if (dialog?.open) {
       dialog.close();
-      cleanup();
-    };
+    }
+    if (!board || !input) return;
 
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      const nextTitle = input.value.trim();
-      dialog.close();
-      cleanup();
-      if (nextTitle && nextTitle !== board.title) {
-        this.storage.renameBoard(board.id, nextTitle);
-        this.renderQuickTabs();
-        this.scrollToTab(board.id);
-        this.showToast(`ボード名を「${nextTitle}」に変更しました`);
-      }
-    };
-
-    const cleanup = () => {
-      cancelBtn.removeEventListener('click', handleCancel);
-      form.removeEventListener('submit', handleSubmit);
-    };
-
-    cancelBtn.addEventListener('click', handleCancel);
-    form.addEventListener('submit', handleSubmit);
+    const nextTitle = input.value.trim();
+    if (nextTitle && nextTitle !== board.title) {
+      this.storage.renameBoard(board.id, nextTitle);
+      this.renderQuickTabs();
+      this.scrollToTab(board.id);
+      this.showToast(`ボード名を「${nextTitle}」に変更しました`);
+    }
   }
 
   /**
@@ -807,13 +900,11 @@ class WhiteboardApp {
       this.scrollToTab(boardId);
 
       const activeTabEl = document.querySelector(`.m3-board-tab[data-board-id="${boardId}"]`);
-      if (activeTabEl) {
-        animate(
-          activeTabEl,
-          { scale: [0.94, 1.02, 1] },
-          { type: 'spring', stiffness: 520, damping: 28 }
-        );
-      }
+      this.safeAnimate(
+        activeTabEl,
+        { scale: [0.92, 1] },
+        { type: 'spring', stiffness: 520, damping: 24 }
+      );
     }
   }
 
@@ -828,13 +919,11 @@ class WhiteboardApp {
     this.scrollToTab(newBoard.id);
 
     const newTabEl = document.querySelector(`.m3-board-tab[data-board-id="${newBoard.id}"]`);
-    if (newTabEl) {
-      animate(
-        newTabEl,
-        { scale: [0.85, 1.04, 1], opacity: [0.4, 1] },
-        { type: 'spring', stiffness: 480, damping: 26 }
-      );
-    }
+    this.safeAnimate(
+      newTabEl,
+      { scale: [0.85, 1], opacity: [0.4, 1] },
+      { type: 'spring', stiffness: 480, damping: 24 }
+    );
     this.showToast(`「${newBoard.title}」を作成しました`);
   }
 
@@ -846,46 +935,29 @@ class WhiteboardApp {
     const titleEl = document.getElementById('dialog-title');
     const msgEl = document.getElementById('dialog-message');
     const confirmLabelEl = document.getElementById('dialog-confirm-label');
-    const cancelBtn = document.getElementById('dialog-cancel-btn');
-    const confirmBtn = document.getElementById('dialog-confirm-btn');
 
     if (!dialog) {
       if (confirm(message)) onConfirm();
       return;
     }
 
+    this.closeAllPopovers();
+    this.confirmCallback = onConfirm;
+
     if (titleEl) titleEl.textContent = title || '確認';
     if (msgEl) msgEl.textContent = message || '';
     if (confirmLabelEl) confirmLabelEl.textContent = confirmLabel || '実行する';
 
-    dialog.showModal();
-    const surface = dialog.querySelector('.m3-dialog-surface');
-    if (surface) {
-      animate(
-        surface,
-        { scale: [0.88, 1], opacity: [0, 1] },
-        { type: 'spring', stiffness: 520, damping: 28 }
-      );
+    if (!dialog.open) {
+      dialog.showModal();
     }
 
-    const handleCancel = () => {
-      dialog.close();
-      cleanup();
-    };
-
-    const handleConfirm = () => {
-      dialog.close();
-      cleanup();
-      onConfirm();
-    };
-
-    const cleanup = () => {
-      cancelBtn.removeEventListener('click', handleCancel);
-      confirmBtn.removeEventListener('click', handleConfirm);
-    };
-
-    cancelBtn.addEventListener('click', handleCancel);
-    confirmBtn.addEventListener('click', handleConfirm);
+    const surface = dialog.querySelector('.m3-dialog-surface');
+    this.safeAnimate(
+      surface,
+      { scale: [0.88, 1], opacity: [0, 1] },
+      { type: 'spring', stiffness: 520, damping: 28 }
+    );
   }
 
   /**

@@ -317,8 +317,9 @@ export class WhiteboardCanvas {
    * Clear all strokes
    */
   clear() {
-    if (this.strokes.length === 0) return;
-    this.undoStack.push([...this.strokes]);
+    if (this.strokes.length > 0) {
+      this.undoStack.push([...this.strokes]);
+    }
     this.redoStack = [];
     this.strokes = [];
     this.redrawAll();

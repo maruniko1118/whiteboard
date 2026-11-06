@@ -825,29 +825,42 @@ canvas#whiteboard-canvas {
 
 .m3-width-pill-btn {
   position: relative;
-  height: 32px;
-  min-width: 44px;
-  padding: 0 8px;
+  height: 34px;
+  min-width: 52px;
+  padding: 0 10px;
   border-radius: var(--md-sys-shape-corner-full);
   background-color: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
-  border: 1px solid var(--md-sys-color-outline-variant);
+  border: 1.5px solid var(--md-sys-color-outline-variant);
   font-family: var(--font-mono);
   font-size: 11.5px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   cursor: pointer;
   overflow: hidden;
+  flex-shrink: 0;
   transition: border-radius 0.3s var(--md-sys-motion-spring-fast-spatial),
-              background-color 0.2s ease;
+              background-color 0.2s ease,
+              border-color 0.2s ease;
 }
 
-.m3-width-pill-btn:hover {
-  border-radius: 10px;
+.m3-width-pill-btn:hover,
+.m3-width-pill-btn[aria-expanded="true"] {
+  border-radius: 11px;
   background-color: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
+  border-color: var(--md-sys-color-primary);
+}
+
+.m3-width-btn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -878,23 +891,23 @@ canvas#whiteboard-canvas {
 }
 
 .m3-seed-popover {
-  width: 244px;
+  width: 256px;
 }
 
 .m3-menu-popover {
-  width: 240px;
-  padding: 10px;
+  width: 248px;
+  padding: 12px;
 }
 
 .m3-color-studio-popover {
-  width: 272px;
+  width: 276px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 .m3-width-popover {
-  width: 236px;
+  width: 252px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -904,6 +917,13 @@ canvas#whiteboard-canvas {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.m3-popover-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .m3-popover-title {
@@ -1123,6 +1143,13 @@ canvas#whiteboard-canvas {
   outline-offset: 2px;
 }
 
+.m3-popover-full-btn {
+  width: 100%;
+  height: 38px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 /* Width Slider Popover */
 .m3-width-readout {
   font-family: var(--font-mono);
@@ -1147,6 +1174,42 @@ canvas#whiteboard-canvas {
   border-radius: 50%;
   background-color: var(--md-sys-color-primary);
   transition: width 0.1s ease, height 0.1s ease;
+}
+
+.m3-width-preset-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.m3-width-chip {
+  position: relative;
+  height: 32px;
+  padding: 0 4px;
+  border-radius: var(--md-sys-shape-corner-full);
+  border: 1.5px solid var(--md-sys-color-outline-variant);
+  background-color: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface-variant);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-radius 0.3s var(--md-sys-motion-spring-fast-spatial),
+              background-color 0.2s ease,
+              color 0.2s ease,
+              border-color 0.2s ease;
+}
+
+.m3-width-chip.active {
+  border-radius: 10px;
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border-color: var(--md-sys-color-primary);
+  font-weight: 700;
 }
 
 md-slider {
@@ -1411,7 +1474,7 @@ md-slider {
 
 /* Mobile Layout (<= 768px):
    - 2-tier Top App Bar so Board Tabs have full horizontal width and never get crushed
-   - 2-row Floating Toolbar Dock so all 8 colors + all tools fit 100% on screen */
+   - 2-row Floating Toolbar Dock where #btn-clear and all controls fit 100% inside the toolbar on any smartphone */
 @media (max-width: 768px) {
   .m3-top-app-bar {
     flex-wrap: wrap;
@@ -1435,7 +1498,17 @@ md-slider {
   .m3-header-actions {
     order: 2;
     margin-left: auto;
-    gap: 6px;
+    gap: 5px;
+  }
+
+  .m3-header-actions .m3-save-chip,
+  .m3-header-actions .m3-icon-btn,
+  .m3-header-actions .m3-tonal-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    flex: 0 0 36px;
+    padding: 0;
   }
 
   .m3-board-tabs-wrapper {
@@ -1468,56 +1541,78 @@ md-slider {
     flex: 0 0 34px !important;
   }
 
-  /* 2-Row Mobile Floating Toolbar Dock */
+  /* 2-Row Mobile Floating Toolbar Dock — Zero Overflow Guaranteed */
   .m3-floating-toolbar {
     flex-direction: column;
     bottom: max(10px, env(safe-area-inset-bottom, 10px));
     width: calc(100vw - 16px);
-    max-width: 400px;
-    padding: 8px 10px;
+    max-width: 396px;
+    padding: 8px 12px;
     gap: 6px;
     border-radius: 22px;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .desktop-only-divider {
     display: none;
   }
 
+  /* Hide desktop-only individual width circles on mobile; #width-slider-btn opens the full width preset + slider popover */
+  .m3-toolbar-main-row .width-btn {
+    display: none;
+  }
+
   .m3-toolbar-main-row {
     width: 100%;
+    min-width: 0;
     justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .m3-toolbar-group {
     gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .m3-tool-btn {
+    width: 38px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .m3-tool-btn.action-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .m3-width-pill-btn {
+    height: 34px;
+    min-width: 58px;
+    padding: 0 10px;
+    font-size: 11.5px;
   }
 
   .colors-group {
     width: 100%;
+    min-width: 0;
     justify-content: space-between;
     padding-top: 6px;
     border-top: 1px solid var(--md-sys-color-outline-variant);
     gap: 2px;
   }
 
-  .m3-tool-btn {
-    height: 36px;
-    padding: 0 9px;
-  }
-
-  .m3-tool-btn.action-btn {
-    width: 34px;
-    height: 34px;
-  }
-
-  .width-btn {
+  .color-btn {
     width: 32px;
     height: 32px;
     flex: 0 0 32px;
   }
 
-  .m3-width-pill-btn {
-    height: 30px;
-    min-width: 40px;
-    padding: 0 6px;
-    font-size: 11px;
+  .color-swatch {
+    width: 21px;
+    height: 21px;
   }
 
   .m3-snackbar {
