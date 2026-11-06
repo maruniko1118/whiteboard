@@ -2,7 +2,7 @@
 <html lang="ja" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="Material Design 3 Expressive を採用した高機能・高速ホワイトボードアプリケーション">
   <title>Whiteboard — Material 3 Expressive</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -15,7 +15,7 @@
   <div id="app" class="app-container">
     <!-- Top App Bar (Material Design 3 Expressive) -->
     <header class="m3-top-app-bar" role="banner">
-      <!-- Left: Brand + Fixed-Width Unified Board Tabs -->
+      <!-- Brand + Board Tabs Strip -->
       <div class="m3-header-tabs-section">
         <div class="m3-brand-mark" title="Whiteboard (Material 3 Expressive)" aria-hidden="true">
           <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -24,17 +24,43 @@
           <h1 class="sr-only">Whiteboard</h1>
         </div>
 
-        <!-- Unified Board Tabs Strip (Fixed-width tabs, left-aligned so positions never jump) -->
+        <!-- Unified Board Tabs Strip (Full board names without truncation, stable positions) -->
         <div class="m3-board-tabs-wrapper">
           <div class="m3-board-tabs" id="quick-board-tabs" role="tablist" aria-label="ボード一覧">
-            <!-- Dynamically populated fixed-width board tabs -->
+            <!-- Dynamically populated board tabs (full name, no ellipsis) -->
           </div>
-          <button id="quick-new-board-btn" class="m3-tonal-icon-btn m3-new-tab-btn" title="新しいボードを作成" aria-label="新しいボードを作成">
-            <md-ripple></md-ripple>
-            <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 5v14"/><path d="M5 12h14"/>
-            </svg>
-          </button>
+
+          <!-- Board Tab Controls: Add / Rename / Duplicate / Delete active board -->
+          <div class="m3-board-tab-controls" role="group" aria-label="ボード操作">
+            <button id="quick-new-board-btn" class="m3-tonal-icon-btn m3-tab-ctrl-btn" title="新しいボードを作成" aria-label="新しいボードを作成">
+              <md-ripple></md-ripple>
+              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14"/><path d="M5 12h14"/>
+              </svg>
+            </button>
+            <button id="active-board-rename-btn" class="m3-icon-btn m3-tab-ctrl-btn" title="現在のボード名を変更" aria-label="現在のボード名を変更">
+              <md-ripple></md-ripple>
+              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+              </svg>
+            </button>
+            <button id="active-board-duplicate-btn" class="m3-icon-btn m3-tab-ctrl-btn" title="現在のボードを複製" aria-label="現在のボードを複製">
+              <md-ripple></md-ripple>
+              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+            </button>
+            <button id="active-board-delete-btn" class="m3-icon-btn m3-tab-ctrl-btn danger-hover" title="現在のボードを削除" aria-label="現在のボードを削除">
+              <md-ripple></md-ripple>
+              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -51,75 +77,29 @@
           <span class="status-text" id="save-status-text">自動保存済み</span>
         </div>
 
-        <!-- M3 Expressive Dynamic Theme Color Seed Picker -->
-        <div class="m3-popover-anchor">
-          <button id="theme-seed-btn" class="m3-icon-btn" title="UIテーマカラー (Material 3 Expressive Dynamic Color)" aria-label="UIテーマカラー設定" aria-expanded="false">
-            <md-ripple></md-ripple>
-            <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
-              <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
-              <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
-              <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
-              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
-            </svg>
-          </button>
-          <div class="m3-popover m3-seed-popover" id="theme-seed-popover" role="dialog" aria-label="M3 Expressive テーマカラー">
-            <div class="m3-popover-title">M3 Expressive テーマカラー</div>
-            <div class="m3-seed-swatches" id="theme-seed-swatches">
-              <button class="m3-seed-swatch" data-seed="#6750A4" style="--seed-preview: #6750A4" title="Expressive Violet">
-                <md-ripple></md-ripple>
-              </button>
-              <button class="m3-seed-swatch" data-seed="#0061A4" style="--seed-preview: #0061A4" title="Ocean Blue">
-                <md-ripple></md-ripple>
-              </button>
-              <button class="m3-seed-swatch" data-seed="#006C4C" style="--seed-preview: #006C4C" title="Emerald Green">
-                <md-ripple></md-ripple>
-              </button>
-              <button class="m3-seed-swatch" data-seed="#984061" style="--seed-preview: #984061" title="Expressive Rose">
-                <md-ripple></md-ripple>
-              </button>
-              <button class="m3-seed-swatch" data-seed="#8B5000" style="--seed-preview: #8B5000" title="Warm Amber">
-                <md-ripple></md-ripple>
-              </button>
-            </div>
-          </div>
-        </div>
+        <!-- M3 Expressive Dynamic Theme Color Seed Picker Trigger -->
+        <button id="theme-seed-btn" class="m3-icon-btn" title="UIテーマカラー (Material 3 Expressive Dynamic Color)" aria-label="UIテーマカラー設定" aria-expanded="false">
+          <md-ripple></md-ripple>
+          <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+            <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+            <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+            <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+          </svg>
+        </button>
 
-        <!-- Backup & Restore Menu -->
-        <div class="m3-popover-anchor">
-          <button id="data-menu-btn" class="m3-icon-btn" title="バックアップと復元 (JSON)" aria-label="バックアップと復元メニュー" aria-expanded="false">
-            <md-ripple></md-ripple>
-            <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
-              <path d="M12 10v6"/><path d="m9 13 3 3 3-3"/>
-            </svg>
-          </button>
-          <div class="m3-popover m3-menu-popover" id="data-menu-popover" role="menu" aria-label="データ管理メニュー">
-            <div class="m3-popover-title">ボードデータ管理</div>
-            <button id="export-all-btn" class="m3-menu-item" role="menuitem">
-              <md-ripple></md-ripple>
-              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" x2="12" y1="15" y2="3"/>
-              </svg>
-              <span>全ボードをJSON保存</span>
-            </button>
-            <label class="m3-menu-item file-import-label" role="menuitem" tabindex="0">
-              <md-ripple></md-ripple>
-              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" x2="12" y1="3" y2="15"/>
-              </svg>
-              <span>JSONバックアップから復元</span>
-              <input type="file" id="import-file-input" accept=".json" style="display: none;">
-            </label>
-          </div>
-        </div>
+        <!-- Backup & Restore Menu Trigger -->
+        <button id="data-menu-btn" class="m3-icon-btn" title="バックアップと復元 (JSON)" aria-label="バックアップと復元メニュー" aria-expanded="false">
+          <md-ripple></md-ripple>
+          <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+            <path d="M12 10v6"/><path d="m9 13 3 3 3-3"/>
+          </svg>
+        </button>
 
         <!-- Export PNG Button -->
-        <button id="export-png-btn" class="m3-tonal-btn" title="現在のボードを画像として保存 (PNG)">
+        <button id="export-png-btn" class="m3-tonal-btn" title="現在のボードを画像として保存 (PNG)" aria-label="PNG保存">
           <md-ripple></md-ripple>
           <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -151,35 +131,90 @@
       <canvas id="whiteboard-canvas"></canvas>
 
       <!-- Material 3 Expressive Floating Toolbar Dock -->
-      <nav class="m3-floating-toolbar" aria-label="描画ツールバー">
-        <!-- Tool Selection: Pen & Eraser -->
-        <div class="m3-toolbar-group" role="group" aria-label="描画ツール">
-          <button id="tool-pen" class="m3-tool-btn active" data-tool="pen" title="ペンツール (P)">
-            <md-ripple></md-ripple>
-            <span class="tool-icon-wrap" id="tool-pen-icon">
-              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 17.46v3.04c0 .28.22.5.5.5h3.04c.13 0 .26-.05.35-.15L17.81 9.94l-3.75-3.75L3.15 17.1c-.1.1-.15.22-.15.36zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-              </svg>
-            </span>
-            <span class="tool-label">ペン</span>
-          </button>
+      <nav class="m3-floating-toolbar" id="floating-toolbar" aria-label="描画ツールバー">
+        <!-- Row 1 on Mobile / Left-Center on Desktop: Tools, Width & History -->
+        <div class="m3-toolbar-main-row">
+          <!-- Tool Selection: Pen & Eraser -->
+          <div class="m3-toolbar-group" role="group" aria-label="描画ツール">
+            <button id="tool-pen" class="m3-tool-btn active" data-tool="pen" title="ペンツール (P)">
+              <md-ripple></md-ripple>
+              <span class="tool-icon-wrap" id="tool-pen-icon">
+                <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 17.46v3.04c0 .28.22.5.5.5h3.04c.13 0 .26-.05.35-.15L17.81 9.94l-3.75-3.75L3.15 17.1c-.1.1-.15.22-.15.36zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </span>
+              <span class="tool-label">ペン</span>
+            </button>
 
-          <button id="tool-eraser" class="m3-tool-btn" data-tool="eraser" title="消しゴム (E)">
-            <md-ripple></md-ripple>
-            <span class="tool-icon-wrap" id="tool-eraser-icon">
+            <button id="tool-eraser" class="m3-tool-btn" data-tool="eraser" title="消しゴム (E)">
+              <md-ripple></md-ripple>
+              <span class="tool-icon-wrap" id="tool-eraser-icon">
+                <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+                  <path d="M22 21H7"/>
+                  <path d="m5 11 9 9"/>
+                </svg>
+              </span>
+              <span class="tool-label">消しゴム</span>
+            </button>
+          </div>
+
+          <div class="m3-toolbar-divider" role="separator"></div>
+
+          <!-- Stroke Width Presets + Fine Slider Trigger -->
+          <div class="m3-toolbar-group width-group" role="group" aria-label="線の太さ">
+            <button class="width-btn" data-width="2" title="細い (2px) [">
+              <md-ripple></md-ripple>
+              <span class="width-indicator fine"></span>
+            </button>
+            <button class="width-btn active" data-width="5" title="普通 (5px)">
+              <md-ripple></md-ripple>
+              <span class="width-indicator medium"></span>
+            </button>
+            <button class="width-btn" data-width="12" title="太い (12px) ]">
+              <md-ripple></md-ripple>
+              <span class="width-indicator bold"></span>
+            </button>
+            <button id="width-slider-btn" class="m3-width-pill-btn" title="線の太さを細かく調整 (1px〜48px)" aria-label="線の太さスライダー" aria-expanded="false">
+              <md-ripple></md-ripple>
+              <span id="width-value-badge">5px</span>
+            </button>
+          </div>
+
+          <div class="m3-toolbar-divider" role="separator"></div>
+
+          <!-- History: Undo / Redo / Clear -->
+          <div class="m3-toolbar-group" role="group" aria-label="履歴と消去">
+            <button id="btn-undo" class="m3-tool-btn action-btn" title="元に戻す (Ctrl+Z)" aria-label="元に戻す" disabled>
+              <md-ripple></md-ripple>
               <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
-                <path d="M22 21H7"/>
-                <path d="m5 11 9 9"/>
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
               </svg>
-            </span>
-            <span class="tool-label">消しゴム</span>
-          </button>
+            </button>
+            <button id="btn-redo" class="m3-tool-btn action-btn" title="やり直す (Ctrl+Y)" aria-label="やり直す" disabled>
+              <md-ripple></md-ripple>
+              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 7v6h-6"/>
+                <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
+              </svg>
+            </button>
+            <button id="btn-clear" class="m3-tool-btn action-btn danger-hover" title="ボードを全消去" aria-label="ボードを全消去">
+              <md-ripple></md-ripple>
+              <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                <line x1="10" x2="10" y1="11" y2="17"/>
+                <line x1="14" x2="14" y1="11" y2="17"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <div class="m3-toolbar-divider" role="separator"></div>
+        <div class="m3-toolbar-divider desktop-only-divider" role="separator"></div>
 
-        <!-- Expressive Color Palette + Custom Color Studio -->
+        <!-- Expressive Color Palette + Custom Color Studio Trigger -->
         <div class="m3-toolbar-group colors-group" id="colors-group" role="group" aria-label="ペンの色">
           <button class="color-btn active" data-color="black" title="黒 (ダーク時は白) [1]" aria-label="黒 (ダーク時は白)">
             <md-ripple></md-ripple>
@@ -223,128 +258,135 @@
               <svg class="swatch-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             </span>
           </button>
-
-          <!-- Custom Color Picker Trigger & Studio Popover -->
-          <div class="m3-popover-anchor">
-            <button id="custom-color-btn" class="color-btn custom-color-trigger" data-color="custom" title="自由な色を選択 (カスタムカラーピッカー)" aria-label="カスタムカラーピッカー" aria-expanded="false">
-              <md-ripple></md-ripple>
-              <span class="color-swatch color-custom-wheel" id="swatch-custom">
-                <span class="custom-color-inner" id="custom-color-inner"></span>
-              </span>
-            </button>
-
-            <!-- M3 Expressive Color Studio Popover -->
-            <div class="m3-popover m3-color-studio-popover" id="color-picker-popover" role="dialog" aria-label="カスタムカラーピッカー">
-              <div class="m3-popover-header">
-                <span class="m3-popover-title">カラーピッカー</span>
-                <button id="close-color-popover-btn" class="m3-mini-icon-btn" aria-label="閉じる">
-                  <md-ripple></md-ripple>
-                  <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                </button>
-              </div>
-
-              <!-- 2D Saturation / Brightness Spectrum -->
-              <div class="m3-spectrum-wrapper" id="spectrum-wrapper">
-                <canvas id="color-spectrum-canvas" width="232" height="136"></canvas>
-                <div class="m3-spectrum-cursor" id="spectrum-cursor"></div>
-              </div>
-
-              <!-- Hue Slider -->
-              <div class="m3-hue-slider-row">
-                <input type="range" id="color-hue-slider" class="m3-hue-range" min="0" max="360" value="260" aria-label="色相 (Hue)">
-              </div>
-
-              <!-- Hex Input & Save to My Colors -->
-              <div class="m3-hex-input-row">
-                <label class="m3-color-preview-pill" id="custom-preview-pill" title="システムカラーピッカーを開く">
-                  <input type="color" id="native-color-input" value="#6750a4" aria-label="ネイティブカラーピッカー">
-                </label>
-                <input type="text" id="custom-hex-input" class="m3-hex-field" value="#6750A4" maxlength="7" spellcheck="false" aria-label="HEXカラーコード">
-                <button id="save-custom-color-btn" class="m3-tonal-sm-btn" title="マイカラーに保存">
-                  <md-ripple></md-ripple>
-                  <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                  <span>保存</span>
-                </button>
-              </div>
-
-              <!-- Saved Custom Colors (My Colors) -->
-              <div class="m3-saved-colors-section">
-                <div class="m3-section-caption">マイカラー (クリックで選択)</div>
-                <div class="m3-custom-swatches-grid" id="custom-swatches-grid">
-                  <!-- Populated dynamically from storage -->
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="m3-toolbar-divider" role="separator"></div>
-
-        <!-- Stroke Width Presets + Fine Slider -->
-        <div class="m3-toolbar-group width-group" role="group" aria-label="線の太さ">
-          <button class="width-btn" data-width="2" title="細い (2px) [">
+          <button id="custom-color-btn" class="color-btn custom-color-trigger" data-color="custom" title="自由な色を選択 (カスタムカラーピッカー)" aria-label="カスタムカラーピッカー" aria-expanded="false">
             <md-ripple></md-ripple>
-            <span class="width-indicator fine"></span>
-          </button>
-          <button class="width-btn active" data-width="5" title="普通 (5px)">
-            <md-ripple></md-ripple>
-            <span class="width-indicator medium"></span>
-          </button>
-          <button class="width-btn" data-width="12" title="太い (12px) ]">
-            <md-ripple></md-ripple>
-            <span class="width-indicator bold"></span>
-          </button>
-
-          <!-- Fine Width Slider Popover Trigger -->
-          <div class="m3-popover-anchor">
-            <button id="width-slider-btn" class="m3-width-pill-btn" title="線の太さを細かく調整 (1px〜48px)" aria-label="線の太さスライダー">
-              <md-ripple></md-ripple>
-              <span id="width-value-badge">5px</span>
-            </button>
-            <div class="m3-popover m3-width-popover" id="width-popover" role="dialog" aria-label="線の太さ調整">
-              <div class="m3-popover-header">
-                <span class="m3-popover-title">線の太さ</span>
-                <span class="m3-width-readout" id="width-readout-label">5 px</span>
-              </div>
-              <div class="m3-width-preview-stage">
-                <span class="m3-width-live-dot" id="width-live-dot"></span>
-              </div>
-              <md-slider id="m3-width-slider" min="1" max="48" value="5" step="1" labeled></md-slider>
-            </div>
-          </div>
-        </div>
-
-        <div class="m3-toolbar-divider" role="separator"></div>
-
-        <!-- History: Undo / Redo / Clear -->
-        <div class="m3-toolbar-group" role="group" aria-label="履歴と消去">
-          <button id="btn-undo" class="m3-tool-btn action-btn" title="元に戻す (Ctrl+Z)" aria-label="元に戻す" disabled>
-            <md-ripple></md-ripple>
-            <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7v6h6"/>
-              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
-            </svg>
-          </button>
-          <button id="btn-redo" class="m3-tool-btn action-btn" title="やり直す (Ctrl+Y)" aria-label="やり直す" disabled>
-            <md-ripple></md-ripple>
-            <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 7v6h-6"/>
-              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
-            </svg>
-          </button>
-          <button id="btn-clear" class="m3-tool-btn action-btn danger-hover" title="ボードを全消去" aria-label="ボードを全消去">
-            <md-ripple></md-ripple>
-            <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"/>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-              <line x1="10" x2="10" y1="11" y2="17"/>
-              <line x1="14" x2="14" y1="11" y2="17"/>
-            </svg>
+            <span class="color-swatch color-custom-wheel" id="swatch-custom">
+              <span class="custom-color-inner" id="custom-color-inner"></span>
+            </span>
           </button>
         </div>
       </nav>
     </main>
+
+    <!-- Viewport-Safe Popovers (placed at app root so they never clip on mobile or desktop) -->
+    <!-- 1. M3 Expressive Theme Seed Popover -->
+    <div class="m3-popover m3-seed-popover" id="theme-seed-popover" role="dialog" aria-label="M3 Expressive テーマカラー">
+      <div class="m3-popover-title">M3 Expressive テーマカラー</div>
+      <div class="m3-seed-swatches" id="theme-seed-swatches">
+        <button class="m3-seed-swatch" data-seed="#6750A4" style="--seed-preview: #6750A4" title="Expressive Violet">
+          <md-ripple></md-ripple>
+        </button>
+        <button class="m3-seed-swatch" data-seed="#0061A4" style="--seed-preview: #0061A4" title="Ocean Blue">
+          <md-ripple></md-ripple>
+        </button>
+        <button class="m3-seed-swatch" data-seed="#006C4C" style="--seed-preview: #006C4C" title="Emerald Green">
+          <md-ripple></md-ripple>
+        </button>
+        <button class="m3-seed-swatch" data-seed="#984061" style="--seed-preview: #984061" title="Expressive Rose">
+          <md-ripple></md-ripple>
+        </button>
+        <button class="m3-seed-swatch" data-seed="#8B5000" style="--seed-preview: #8B5000" title="Warm Amber">
+          <md-ripple></md-ripple>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. Backup & Restore Menu Popover -->
+    <div class="m3-popover m3-menu-popover" id="data-menu-popover" role="menu" aria-label="データ管理メニュー">
+      <div class="m3-popover-title">ボードデータ管理</div>
+      <button id="export-all-btn" class="m3-menu-item" role="menuitem">
+        <md-ripple></md-ripple>
+        <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" x2="12" y1="15" y2="3"/>
+        </svg>
+        <span>全ボードをJSON保存</span>
+      </button>
+      <label class="m3-menu-item file-import-label" role="menuitem" tabindex="0">
+        <md-ripple></md-ripple>
+        <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" x2="12" y1="3" y2="15"/>
+        </svg>
+        <span>JSONバックアップから復元</span>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+      </label>
+    </div>
+
+    <!-- 3. M3 Expressive Color Studio Popover -->
+    <div class="m3-popover m3-color-studio-popover" id="color-picker-popover" role="dialog" aria-label="カスタムカラーピッカー">
+      <div class="m3-popover-header">
+        <span class="m3-popover-title">カラーピッカー</span>
+        <button id="close-color-popover-btn" class="m3-mini-icon-btn" aria-label="閉じる">
+          <md-ripple></md-ripple>
+          <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="m3-spectrum-wrapper" id="spectrum-wrapper">
+        <canvas id="color-spectrum-canvas" width="232" height="136"></canvas>
+        <div class="m3-spectrum-cursor" id="spectrum-cursor"></div>
+      </div>
+
+      <div class="m3-hue-slider-row">
+        <input type="range" id="color-hue-slider" class="m3-hue-range" min="0" max="360" value="260" aria-label="色相 (Hue)">
+      </div>
+
+      <div class="m3-hex-input-row">
+        <label class="m3-color-preview-pill" id="custom-preview-pill" title="システムカラーピッカーを開く">
+          <input type="color" id="native-color-input" value="#6750a4" aria-label="ネイティブカラーピッカー">
+        </label>
+        <input type="text" id="custom-hex-input" class="m3-hex-field" value="#6750A4" maxlength="7" spellcheck="false" aria-label="HEXカラーコード">
+        <button id="save-custom-color-btn" class="m3-tonal-sm-btn" title="マイカラーに保存">
+          <md-ripple></md-ripple>
+          <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          <span>保存</span>
+        </button>
+      </div>
+
+      <div class="m3-saved-colors-section">
+        <div class="m3-section-caption">マイカラー (タップで選択)</div>
+        <div class="m3-custom-swatches-grid" id="custom-swatches-grid"></div>
+      </div>
+    </div>
+
+    <!-- 4. Stroke Width Slider Popover -->
+    <div class="m3-popover m3-width-popover" id="width-popover" role="dialog" aria-label="線の太さ調整">
+      <div class="m3-popover-header">
+        <span class="m3-popover-title">線の太さ</span>
+        <span class="m3-width-readout" id="width-readout-label">5 px</span>
+      </div>
+      <div class="m3-width-preview-stage">
+        <span class="m3-width-live-dot" id="width-live-dot"></span>
+      </div>
+      <md-slider id="m3-width-slider" min="1" max="48" value="5" step="1" labeled></md-slider>
+    </div>
+
+    <!-- M3 Expressive Rename Board Dialog -->
+    <dialog class="m3-dialog" id="rename-dialog">
+      <form class="m3-dialog-surface" id="rename-dialog-form" method="dialog">
+        <div class="m3-dialog-icon primary">
+          <svg class="m3-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+          </svg>
+        </div>
+        <h3 class="m3-dialog-title">ボード名の変更</h3>
+        <input type="text" id="rename-dialog-input" class="m3-dialog-text-input" maxlength="60" placeholder="ボード名を入力..." required aria-label="新しいボード名">
+        <div class="m3-dialog-actions">
+          <button type="button" id="rename-cancel-btn" class="m3-text-btn">
+            <md-ripple></md-ripple>
+            <span>キャンセル</span>
+          </button>
+          <button type="submit" id="rename-confirm-btn" class="m3-filled-primary-btn">
+            <md-ripple></md-ripple>
+            <span>変更を保存</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
 
     <!-- M3 Expressive Confirm Modal Dialog -->
     <dialog class="m3-dialog" id="confirm-dialog">

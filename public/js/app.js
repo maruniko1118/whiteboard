@@ -1,6 +1,7 @@
 /**
  * app.js - Material Design 3 Expressive Application Controller
- * Handles unified fixed-width board tabs, M3 2025 Dynamic Color tokens,
+ * Handles unified full-title board tabs (zero truncation & zero position shift),
+ * M3 2025 Dynamic Color tokens, mobile-first viewport-safe popovers,
  * spring physics animations, 2D custom color studio, and calm auto-save status.
  */
 
@@ -22,7 +23,7 @@ class WhiteboardApp {
     // Custom Color HSV State (default Expressive Violet #6750A4)
     this.hsv = { h: 256, s: 51, v: 64 };
     this.customHex = '#6750A4';
-    this.renamingBoardId = null;
+    this.activePopoverPair = null;
 
     // Apply M3 Expressive Theme before canvas init
     this.applyTheme(this.theme, false);
@@ -129,7 +130,7 @@ class WhiteboardApp {
     // Preset Color Swatch Buttons
     document.querySelectorAll('.color-btn[data-color]').forEach(btn => {
       const colorKey = btn.dataset.color;
-      if (colorKey === 'custom') return; // Handled by custom color studio trigger
+      if (colorKey === 'custom') return;
       btn.addEventListener('click', () => {
         this.setColor(colorKey);
         this.closeAllPopovers();
@@ -153,14 +154,14 @@ class WhiteboardApp {
       });
     }
 
-    // Popover Toggles (Color Studio, Width Slider, Theme Seed, Data Menu)
-    this.setupPopover('custom-color-btn', 'color-picker-popover', () => {
+    // Viewport-Safe Popover Toggles
+    this.setupPopover('custom-color-btn', 'color-picker-popover', 'above', () => {
       this.setCustomColor(this.customHex, false);
       this.drawSpectrumCanvas();
     });
-    this.setupPopover('width-slider-btn', 'width-popover');
-    this.setupPopover('theme-seed-btn', 'theme-seed-popover');
-    this.setupPopover('data-menu-btn', 'data-menu-popover');
+    this.setupPopover('width-slider-btn', 'width-popover', 'above');
+    this.setupPopover('theme-seed-btn', 'theme-seed-popover', 'below');
+    this.setupPopover('data-menu-btn', 'data-menu-popover', 'below');
 
     const closeColorPopoverBtn = document.getElementById('close-color-popover-btn');
     if (closeColorPopoverBtn) {
@@ -169,8 +170,21 @@ class WhiteboardApp {
 
     // Close popovers when clicking outside
     document.addEventListener('pointerdown', (e) => {
-      if (!e.target.closest('.m3-popover-anchor')) {
+      if (
+        !e.target.closest('.m3-popover') &&
+        !e.target.closest('[aria-expanded]')
+      ) {
         this.closeAllPopovers();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (this.activePopoverPair) {
+        this.positionPopover(
+          this.activePopoverPair.trigger,
+          this.activePopoverPair.popover,
+          this.activePopoverPair.placement
+        );
       }
     });
 
@@ -210,10 +224,54 @@ class WhiteboardApp {
       exportBtn.addEventListener('click', () => this.exportPng());
     }
 
-    // New Board Button (+) in Unified Tab Strip
+    // Unified Board Tab Controls: Add / Rename / Duplicate / Delete
     const quickNewBoardBtn = document.getElementById('quick-new-board-btn');
+    const renameBoardBtn = document.getElementById('active-board-rename-btn');
+    const duplicateBoardBtn = document.getElementById('active-board-duplicate-btn');
+    const deleteBoardBtn = document.getElementById('active-board-delete-btn');
+
     if (quickNewBoardBtn) {
       quickNewBoardBtn.addEventListener('click', () => this.createNewBoard());
+    }
+    if (renameBoardBtn) {
+      renameBoardBtn.addEventListener('click', () => {
+        const active = this.storage.getActiveBoard();
+        this.openRenameDialog(active);
+      });
+    }
+    if (duplicateBoardBtn) {
+      duplicateBoardBtn.addEventListener('click', () => {
+        const active = this.storage.getActiveBoard();
+        const copy = this.storage.duplicateBoard(active.id);
+        if (copy) {
+          this.canvasEngine.loadBoard(copy);
+          this.renderQuickTabs();
+          this.scrollToTab(copy.id);
+          this.showToast(`「${copy.title}」を複製しました`);
+        }
+      });
+    }
+    if (deleteBoardBtn) {
+      deleteBoardBtn.addEventListener('click', () => {
+        const boards = this.storage.getAllBoards();
+        const active = this.storage.getActiveBoard();
+        const isLast = boards.length <= 1;
+        this.promptConfirmDialog({
+          title: isLast ? 'ボードのリセット' : 'ボードの削除',
+          message: isLast
+            ? `「${active.title}」の描画内容をすべてクリアしますか？`
+            : `ボード「${active.title}」を削除しますか？`,
+          confirmLabel: isLast ? 'リセットする' : '削除する',
+          onConfirm: () => {
+            const res = this.storage.deleteBoard(active.id);
+            if (res.activeBoard) {
+              this.canvasEngine.loadBoard(res.activeBoard);
+            }
+            this.renderQuickTabs();
+            this.showToast(res.deleted ? `「${active.title}」を削除しました` : 'ボードをリセットしました');
+          }
+        });
+      });
     }
 
     // Smooth horizontal wheel scrolling on the tab strip
@@ -268,9 +326,9 @@ class WhiteboardApp {
   }
 
   /**
-   * Setup M3 Expressive Popover with spring animation
+   * Setup Viewport-Safe M3 Expressive Popover
    */
-  setupPopover(triggerId, popoverId, onOpen) {
+  setupPopover(triggerId, popoverId, placement = 'above', onOpen) {
     const trigger = document.getElementById(triggerId);
     const popover = document.getElementById(popoverId);
     if (!trigger || !popover) return;
@@ -280,11 +338,51 @@ class WhiteboardApp {
       const isOpen = popover.classList.contains('open');
       this.closeAllPopovers();
       if (!isOpen) {
+        if (onOpen) onOpen();
+        this.positionPopover(trigger, popover, placement);
         popover.classList.add('open');
         trigger.setAttribute('aria-expanded', 'true');
-        if (onOpen) onOpen();
+        this.activePopoverPair = { trigger, popover, placement };
       }
     });
+  }
+
+  /**
+   * Dynamically position fixed popover so it never clips off-screen on mobile or desktop
+   */
+  positionPopover(trigger, popover, placement = 'above') {
+    const trigRect = trigger.getBoundingClientRect();
+    const popWidth = popover.offsetWidth || 260;
+    const popHeight = popover.offsetHeight || 220;
+    const margin = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = trigRect.left + trigRect.width / 2 - popWidth / 2;
+    left = Math.max(margin, Math.min(vw - popWidth - margin, left));
+
+    if (placement === 'below') {
+      let top = trigRect.bottom + 10;
+      if (top + popHeight > vh - margin) {
+        top = Math.max(margin, vh - popHeight - margin);
+      }
+      popover.style.top = `${Math.round(top)}px`;
+      popover.style.bottom = 'auto';
+      popover.style.transformOrigin = 'top center';
+    } else {
+      // Place above the floating toolbar dock so it never covers toolbar buttons on mobile
+      const toolbar = document.getElementById('floating-toolbar');
+      const anchorTop = toolbar ? toolbar.getBoundingClientRect().top : trigRect.top;
+      let bottom = vh - anchorTop + 12;
+      if (vh - bottom - popHeight < margin) {
+        bottom = Math.max(margin, vh - popHeight - margin);
+      }
+      popover.style.bottom = `${Math.round(bottom)}px`;
+      popover.style.top = 'auto';
+      popover.style.transformOrigin = 'bottom center';
+    }
+
+    popover.style.left = `${Math.round(left)}px`;
   }
 
   closeAllPopovers() {
@@ -294,6 +392,7 @@ class WhiteboardApp {
     document.querySelectorAll('[aria-expanded="true"]').forEach(btn => {
       btn.setAttribute('aria-expanded', 'false');
     });
+    this.activePopoverPair = null;
   }
 
   /**
@@ -315,7 +414,6 @@ class WhiteboardApp {
     this.drawSpectrumCanvas();
     this.updateColorStudioUI();
 
-    // Pointer interaction on 2D Saturation-Value Spectrum
     let isDraggingSpectrum = false;
     const pickFromSpectrum = (e) => {
       const rect = this.spectrumCanvas.getBoundingClientRect();
@@ -340,7 +438,6 @@ class WhiteboardApp {
       isDraggingSpectrum = false;
     });
 
-    // Hue Slider
     if (this.hueSlider) {
       this.hueSlider.addEventListener('input', (e) => {
         this.hsv.h = Number(e.target.value);
@@ -350,7 +447,6 @@ class WhiteboardApp {
       });
     }
 
-    // Hex Text Input
     if (this.hexInput) {
       this.hexInput.addEventListener('input', (e) => {
         let val = e.target.value.trim();
@@ -363,7 +459,6 @@ class WhiteboardApp {
       });
     }
 
-    // Native System Color Input fallback
     if (this.nativeColorInput) {
       this.nativeColorInput.addEventListener('input', (e) => {
         const val = e.target.value.toUpperCase();
@@ -373,7 +468,6 @@ class WhiteboardApp {
       });
     }
 
-    // Save Custom Color to My Colors
     if (this.saveCustomBtn) {
       this.saveCustomBtn.addEventListener('click', () => {
         this.storage.addCustomColor(this.customHex);
@@ -393,18 +487,15 @@ class WhiteboardApp {
     const height = this.spectrumCanvas.height;
     const ctx = this.spectrumCtx;
 
-    // Base hue fill
     ctx.fillStyle = `hsl(${this.hsv.h}, 100%, 50%)`;
     ctx.fillRect(0, 0, width, height);
 
-    // White horizontal gradient (Saturation)
     const gradWhite = ctx.createLinearGradient(0, 0, width, 0);
     gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
     gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = gradWhite;
     ctx.fillRect(0, 0, width, height);
 
-    // Black vertical gradient (Value / Brightness)
     const gradBlack = ctx.createLinearGradient(0, 0, 0, height);
     gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
     gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
@@ -476,7 +567,6 @@ class WhiteboardApp {
       btn.classList.toggle('active', isTarget);
     });
 
-    // Swap Outlined <-> Filled M3 Icons
     const penIconWrap = document.getElementById('tool-pen-icon');
     const eraserIconWrap = document.getElementById('tool-eraser-icon');
     if (penIconWrap) penIconWrap.innerHTML = getIcon('pen', tool === 'pen');
@@ -504,7 +594,7 @@ class WhiteboardApp {
       if (isMatch) {
         animate(
           btn,
-          { scale: [0.85, 1.12, 1.08] },
+          { scale: [0.85, 1.12, 1.06] },
           { type: 'spring', stiffness: 520, damping: 24 }
         );
       }
@@ -565,26 +655,21 @@ class WhiteboardApp {
    * Handle Canvas State Updates & Calm Non-Flickering Auto-Save
    */
   handleCanvasStateChange(state) {
-    // Update Undo / Redo Buttons
     const undoBtn = document.getElementById('btn-undo');
     const redoBtn = document.getElementById('btn-redo');
     if (undoBtn) undoBtn.disabled = !state.canUndo;
     if (redoBtn) redoBtn.disabled = !state.canRedo;
 
-    // Do not re-save or animate indicator when simply loading/switching boards
     if (state.isBoardLoad) return;
 
-    // Immediately persist to LocalStorage (synchronous & zero-latency)
     this.storage.updateActiveBoardStrokes(state.strokes, state.undoStack, state.redoStack);
 
-    // Update tooltip with timestamp without flickering the UI
     const cacheStatus = document.getElementById('cache-status');
     const nowStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     if (cacheStatus) {
       cacheStatus.title = `ローカルストレージに自動保存済み (最終保存: ${nowStr})`;
     }
 
-    // Debounce a subtle check icon bounce only after user pauses drawing for 900ms (zero flicker!)
     clearTimeout(this.saveSettleTimer);
     this.saveSettleTimer = setTimeout(() => {
       const saveIcon = document.getElementById('save-status-icon');
@@ -599,8 +684,9 @@ class WhiteboardApp {
   }
 
   /**
-   * Render Unified Fixed-Width Board Tabs in Top App Bar
-   * Consolidates tab switching, board title display, inline renaming, duplicating, and deleting!
+   * Render Unified Board Tabs in Top App Bar
+   * - Displays the FULL board name without '...' truncation!
+   * - Identical sizing between active and inactive states so switching tabs never shifts positions!
    */
   renderQuickTabs() {
     const container = document.getElementById('quick-board-tabs');
@@ -613,139 +699,101 @@ class WhiteboardApp {
 
     boards.forEach(board => {
       const isActive = board.id === activeBoard.id;
-      const tab = document.createElement('div');
+      const tab = document.createElement('button');
+      tab.type = 'button';
       tab.className = `m3-board-tab ${isActive ? 'active' : ''}`;
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
       tab.dataset.boardId = board.id;
       tab.title = `${board.title} (ダブルクリックで名前変更)`;
 
-      const isRenaming = this.renamingBoardId === board.id;
-
       tab.innerHTML = `
         <md-ripple></md-ripple>
         <span class="m3-tab-lead-icon">${getIcon('board', isActive)}</span>
-        ${
-          isRenaming
-            ? `<input type="text" class="m3-tab-rename-input" value="${this.escapeHtml(board.title)}" maxlength="40" aria-label="ボード名を入力" />`
-            : `<span class="m3-tab-title">${this.escapeHtml(board.title)}</span>`
-        }
-        <div class="m3-tab-actions">
-          <button class="m3-tab-action-btn rename" title="ボード名を変更" aria-label="ボード名を変更">
-            ${getIcon('edit')}
-          </button>
-          <button class="m3-tab-action-btn duplicate" title="ボードを複製" aria-label="ボードを複製">
-            ${getIcon('copy')}
-          </button>
-          <button class="m3-tab-action-btn delete" title="${boards.length > 1 ? 'ボードを削除' : 'ボードをリセット'}" aria-label="ボードを削除">
-            ${getIcon('close')}
-          </button>
-        </div>
+        <span class="m3-tab-title">${this.escapeHtml(board.title)}</span>
       `;
 
-      // Handle inline rename input if currently editing this tab
-      if (isRenaming) {
-        const input = tab.querySelector('.m3-tab-rename-input');
-        if (input) {
-          requestAnimationFrame(() => {
-            input.focus();
-            input.select();
-          });
-
-          const commitRename = () => {
-            if (this.renamingBoardId !== board.id) return;
-            this.renamingBoardId = null;
-            const nextTitle = input.value.trim();
-            if (nextTitle && nextTitle !== board.title) {
-              this.storage.renameBoard(board.id, nextTitle);
-              this.showToast(`ボード名を「${nextTitle}」に変更しました`);
-            }
-            this.renderQuickTabs();
-          };
-
-          input.addEventListener('keydown', (e) => {
-            e.stopPropagation();
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commitRename();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              this.renamingBoardId = null;
-              this.renderQuickTabs();
-            }
-          });
-
-          input.addEventListener('blur', () => commitRename());
-          input.addEventListener('click', (e) => e.stopPropagation());
-        }
-      }
-
-      // Click tab to switch board
-      tab.addEventListener('click', (e) => {
-        if (e.target.closest('.m3-tab-action-btn') || e.target.closest('.m3-tab-rename-input')) return;
+      tab.addEventListener('click', () => {
         if (!isActive) {
           this.switchBoard(board.id);
         }
       });
 
-      // Double-click tab title to rename inline (zero position shift!)
       tab.addEventListener('dblclick', (e) => {
-        if (e.target.closest('.m3-tab-action-btn')) return;
         e.stopPropagation();
-        this.renamingBoardId = board.id;
-        this.renderQuickTabs();
+        this.openRenameDialog(board);
       });
-
-      // Rename button inside tab
-      const renameBtn = tab.querySelector('.m3-tab-action-btn.rename');
-      if (renameBtn) {
-        renameBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.renamingBoardId = board.id;
-          this.renderQuickTabs();
-        });
-      }
-
-      // Duplicate button inside tab
-      const dupBtn = tab.querySelector('.m3-tab-action-btn.duplicate');
-      if (dupBtn) {
-        dupBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const copy = this.storage.duplicateBoard(board.id);
-          if (copy) {
-            this.canvasEngine.loadBoard(copy);
-            this.renderQuickTabs(copy.id);
-            this.showToast(`「${copy.title}」を複製しました`);
-          }
-        });
-      }
-
-      // Delete button inside tab
-      const delBtn = tab.querySelector('.m3-tab-action-btn.delete');
-      if (delBtn) {
-        delBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const isLast = boards.length <= 1;
-          this.promptConfirmDialog({
-            title: isLast ? 'ボードのリセット' : 'ボードの削除',
-            message: isLast
-              ? `「${board.title}」の描画内容をすべてクリアしますか？`
-              : `ボード「${board.title}」を削除しますか？`,
-            confirmLabel: isLast ? 'リセットする' : '削除する',
-            onConfirm: () => {
-              const res = this.storage.deleteBoard(board.id);
-              if (res.activeBoard) {
-                this.canvasEngine.loadBoard(res.activeBoard);
-              }
-              this.renderQuickTabs();
-              this.showToast(res.deleted ? `「${board.title}」を削除しました` : 'ボードをリセットしました');
-            }
-          });
-        });
-      }
 
       container.appendChild(tab);
     });
+
+    // Update Delete button tooltip based on board count
+    const deleteBoardBtn = document.getElementById('active-board-delete-btn');
+    if (deleteBoardBtn) {
+      deleteBoardBtn.title = boards.length > 1 ? '現在のボードを削除' : '現在のボードをリセット';
+    }
+  }
+
+  scrollToTab(boardId) {
+    const tabEl = document.querySelector(`.m3-board-tab[data-board-id="${boardId}"]`);
+    if (tabEl) {
+      tabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  /**
+   * Open M3 Expressive Rename Dialog
+   */
+  openRenameDialog(board) {
+    const dialog = document.getElementById('rename-dialog');
+    const form = document.getElementById('rename-dialog-form');
+    const input = document.getElementById('rename-dialog-input');
+    const cancelBtn = document.getElementById('rename-cancel-btn');
+
+    if (!dialog || !form || !input) return;
+
+    input.value = board.title || '';
+    dialog.showModal();
+
+    const surface = dialog.querySelector('.m3-dialog-surface');
+    if (surface) {
+      animate(
+        surface,
+        { scale: [0.88, 1], opacity: [0, 1] },
+        { type: 'spring', stiffness: 520, damping: 28 }
+      );
+    }
+
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
+    });
+
+    const handleCancel = () => {
+      dialog.close();
+      cleanup();
+    };
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      const nextTitle = input.value.trim();
+      dialog.close();
+      cleanup();
+      if (nextTitle && nextTitle !== board.title) {
+        this.storage.renameBoard(board.id, nextTitle);
+        this.renderQuickTabs();
+        this.scrollToTab(board.id);
+        this.showToast(`ボード名を「${nextTitle}」に変更しました`);
+      }
+    };
+
+    const cleanup = () => {
+      cancelBtn.removeEventListener('click', handleCancel);
+      form.removeEventListener('submit', handleSubmit);
+    };
+
+    cancelBtn.addEventListener('click', handleCancel);
+    form.addEventListener('submit', handleSubmit);
   }
 
   /**
@@ -754,15 +802,15 @@ class WhiteboardApp {
   switchBoard(boardId) {
     const board = this.storage.switchBoard(boardId);
     if (board) {
-      this.renamingBoardId = null;
       this.canvasEngine.loadBoard(board);
       this.renderQuickTabs();
+      this.scrollToTab(boardId);
 
       const activeTabEl = document.querySelector(`.m3-board-tab[data-board-id="${boardId}"]`);
       if (activeTabEl) {
         animate(
           activeTabEl,
-          { scale: [0.93, 1.02, 1] },
+          { scale: [0.94, 1.02, 1] },
           { type: 'spring', stiffness: 520, damping: 28 }
         );
       }
@@ -775,13 +823,12 @@ class WhiteboardApp {
   createNewBoard() {
     const title = `ボード ${this.storage.getAllBoards().length + 1}`;
     const newBoard = this.storage.createBoard(title);
-    this.renamingBoardId = null;
     this.canvasEngine.loadBoard(newBoard);
     this.renderQuickTabs();
+    this.scrollToTab(newBoard.id);
 
     const newTabEl = document.querySelector(`.m3-board-tab[data-board-id="${newBoard.id}"]`);
     if (newTabEl) {
-      newTabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
       animate(
         newTabEl,
         { scale: [0.85, 1.04, 1], opacity: [0.4, 1] },

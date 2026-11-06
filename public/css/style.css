@@ -49,7 +49,7 @@
   --md-sys-color-shadow: #000000;
   --md-sys-color-scrim: #000000;
 
-  /* M3 Expressive Spring Motion Tokens (CSS linear() physics approximations) */
+  /* M3 Expressive Spring Motion Tokens */
   --md-sys-motion-spring-fast-spatial: linear(
     0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017,
     1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%,
@@ -61,7 +61,6 @@
     0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%,
     1.001 85.6%, 1
   );
-  --md-sys-motion-spring-fast-effects: cubic-bezier(0.31, 0.94, 0.34, 1);
 
   /* M3 Shape Scale */
   --md-sys-shape-corner-extra-small: 6px;
@@ -197,20 +196,21 @@ html, body {
   flex-direction: column;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   position: relative;
 }
 
 /* ==========================================================================
-   Top App Bar & Unified Fixed-Width Board Tabs (M3 Expressive)
+   Top App Bar & Unified Board Tabs (Full Names, Zero Position Shift)
    ========================================================================== */
 
 .m3-top-app-bar {
-  height: 60px;
+  min-height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
+  padding: 6px 14px;
   background-color: var(--md-sys-color-surface-container);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   z-index: 30;
@@ -225,7 +225,6 @@ html, body {
   gap: 10px;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
 }
 
 /* Expressive App Squircle Brand Mark */
@@ -255,14 +254,13 @@ html, body {
   height: 22px;
 }
 
-/* Unified Board Tabs Strip — Left-aligned, fixed tab dimensions */
+/* Unified Board Tabs Strip — Left-aligned, full board names without ellipsis! */
 .m3-board-tabs-wrapper {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
 }
 
 .m3-board-tabs {
@@ -271,8 +269,10 @@ html, body {
   justify-content: flex-start;
   gap: 6px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
   scrollbar-width: none;
-  padding: 4px 2px;
+  padding: 3px 2px;
   min-width: 0;
 }
 
@@ -280,25 +280,25 @@ html, body {
   display: none;
 }
 
-/* Strictly Fixed-Width M3 Expressive Tab:
-   Tab position NEVER shifts when board names are short or long! */
+/* M3 Expressive Tab:
+   - Displays 100% of the board name without '...' truncation!
+   - Identical font-weight (600), padding, and border-width between active and inactive states,
+     so switching tabs NEVER shifts any tab's width or position! */
 .m3-board-tab {
   position: relative;
-  width: 184px;
-  min-width: 184px;
-  max-width: 184px;
-  flex: 0 0 184px;
+  width: max-content;
+  flex: 0 0 auto;
   height: 40px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 8px 0 12px;
+  padding: 0 16px;
   border-radius: var(--md-sys-shape-corner-full);
   background-color: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface-variant);
   border: 1.5px solid var(--md-sys-color-outline-variant);
   cursor: pointer;
-  overflow: hidden;
+  white-space: nowrap;
   transition: background-color 0.2s ease,
               color 0.2s ease,
               border-color 0.2s ease,
@@ -323,7 +323,7 @@ html, body {
 }
 
 .m3-tab-lead-icon {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -335,96 +335,35 @@ html, body {
   height: 17px;
 }
 
+/* Full board title — never truncated with '...' */
 .m3-tab-title {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: left;
   line-height: 1.3;
 }
 
-.m3-board-tab.active .m3-tab-title {
-  font-weight: 700;
-}
-
-/* Inline Rename Input inside fixed-width tab (zero layout shift!) */
-.m3-tab-rename-input {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-  height: 26px;
-  padding: 0 6px;
-  border-radius: 6px;
-  border: 1.5px solid var(--md-sys-color-primary);
-  background-color: var(--md-sys-color-surface-container-lowest);
-  color: var(--md-sys-color-on-surface);
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  font-weight: 600;
-  outline: none;
-}
-
-/* Inline Tab Action Buttons (Rename / Duplicate / Delete) */
-.m3-tab-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.m3-board-tab.active .m3-tab-actions,
-.m3-board-tab:hover .m3-tab-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.m3-tab-action-btn {
-  position: relative;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  border-radius: 7px;
-  border: none;
-  background: transparent;
-  color: inherit;
+/* Board Tab Controls Group (+ / Rename / Duplicate / Delete) */
+.m3-board-tab-controls {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0.72;
-  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, transform 0.2s var(--md-sys-motion-spring-fast-spatial);
+  gap: 4px;
+  flex-shrink: 0;
+  padding-left: 4px;
+  border-left: 1.5px solid var(--md-sys-color-outline-variant);
 }
 
-.m3-tab-action-btn:hover {
-  opacity: 1;
-  background-color: rgba(128, 128, 128, 0.18);
-  transform: scale(1.1);
+.m3-tab-ctrl-btn {
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px !important;
+  border-radius: 12px !important;
 }
 
-.m3-tab-action-btn.delete:hover {
-  background-color: var(--md-sys-color-error-container);
-  color: var(--md-sys-color-on-error-container);
-}
-
-.m3-tab-action-btn .m3-svg-icon {
-  width: 14px;
-  height: 14px;
-}
-
-/* New Board (+) Button */
-.m3-new-tab-btn {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
-  border-radius: 13px;
+.m3-tab-ctrl-btn .m3-svg-icon {
+  width: 17px;
+  height: 17px;
 }
 
 /* ==========================================================================
@@ -440,7 +379,7 @@ html, body {
 
 /* Calm Save Status Chip — Fixed dimensions, no blinking dot! */
 .m3-save-chip {
-  height: 34px;
+  height: 36px;
   min-width: 118px;
   padding: 0 12px;
   border-radius: var(--md-sys-shape-corner-full);
@@ -477,9 +416,9 @@ html, body {
 .m3-icon-btn,
 .m3-tonal-icon-btn {
   position: relative;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   border-radius: var(--md-sys-shape-corner-full);
   border: 1px solid var(--md-sys-color-outline-variant);
   background-color: var(--md-sys-color-surface-container-low);
@@ -510,6 +449,12 @@ html, body {
   border-color: var(--md-sys-color-primary);
 }
 
+.m3-icon-btn.danger-hover:hover {
+  background-color: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+  border-color: var(--md-sys-color-error);
+}
+
 .m3-icon-btn:active,
 .m3-tonal-icon-btn:active {
   transform: scale(0.93);
@@ -518,8 +463,8 @@ html, body {
 
 .m3-tonal-btn {
   position: relative;
-  height: 40px;
-  padding: 0 16px;
+  height: 38px;
+  padding: 0 14px;
   border-radius: var(--md-sys-shape-corner-full);
   border: none;
   background-color: var(--md-sys-color-secondary-container);
@@ -530,7 +475,7 @@ html, body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
   cursor: pointer;
   overflow: hidden;
   white-space: nowrap;
@@ -601,14 +546,15 @@ canvas#whiteboard-canvas {
 
 .m3-floating-toolbar {
   position: absolute;
-  bottom: 24px;
+  bottom: max(20px, env(safe-area-inset-bottom, 20px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background-color: color-mix(in srgb, var(--md-sys-color-surface-container-high) 92%, transparent);
+  max-width: calc(100vw - 24px);
+  background-color: color-mix(in srgb, var(--md-sys-color-surface-container-high) 94%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1.5px solid var(--md-sys-color-outline-variant);
@@ -616,6 +562,12 @@ canvas#whiteboard-canvas {
   box-shadow: var(--elevation-floating);
   z-index: 20;
   user-select: none;
+}
+
+.m3-toolbar-main-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .m3-toolbar-group {
@@ -626,9 +578,9 @@ canvas#whiteboard-canvas {
 
 .m3-toolbar-divider {
   width: 1.5px;
-  height: 28px;
+  height: 26px;
   background-color: var(--md-sys-color-outline-variant);
-  margin: 0 4px;
+  margin: 0 2px;
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -636,8 +588,8 @@ canvas#whiteboard-canvas {
 /* Tool Buttons (Pen / Eraser / Undo / Redo / Clear) with M3 Expressive Shape Morphing */
 .m3-tool-btn {
   position: relative;
-  height: 42px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 13px;
   border-radius: var(--md-sys-shape-corner-full);
   background-color: transparent;
   border: 1.5px solid transparent;
@@ -648,7 +600,7 @@ canvas#whiteboard-canvas {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 6px;
   cursor: pointer;
   overflow: hidden;
   flex-shrink: 0;
@@ -691,8 +643,8 @@ canvas#whiteboard-canvas {
 }
 
 .m3-tool-btn.action-btn {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   padding: 0;
 }
 
@@ -707,14 +659,14 @@ canvas#whiteboard-canvas {
    ========================================================================== */
 
 .colors-group {
-  gap: 6px;
+  gap: 5px;
 }
 
 .color-btn {
   position: relative;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   padding: 0;
   border-radius: 50%;
   background: transparent;
@@ -736,15 +688,15 @@ canvas#whiteboard-canvas {
 
 /* Active Color Button morphs into M3 Expressive Squircle */
 .color-btn.active {
-  border-radius: 12px;
+  border-radius: 11px;
   border-color: var(--md-sys-color-primary);
   background-color: var(--md-sys-color-primary-container);
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 .color-swatch {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1.5px solid rgba(0, 0, 0, 0.18);
   display: inline-flex;
@@ -757,12 +709,12 @@ canvas#whiteboard-canvas {
 }
 
 .color-btn.active .color-swatch {
-  border-radius: 8px;
+  border-radius: 7px;
 }
 
 .swatch-check {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   color: #ffffff;
   opacity: 0;
   transform: scale(0.4);
@@ -823,14 +775,14 @@ canvas#whiteboard-canvas {
    ========================================================================== */
 
 .width-group {
-  gap: 5px;
+  gap: 4px;
 }
 
 .width-btn {
   position: relative;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   border-radius: 50%;
   background: transparent;
   border: 1.5px solid transparent;
@@ -847,11 +799,11 @@ canvas#whiteboard-canvas {
 
 .width-btn:hover {
   background-color: var(--md-sys-color-surface-container-highest);
-  border-radius: 12px;
+  border-radius: 11px;
 }
 
 .width-btn.active {
-  border-radius: 12px;
+  border-radius: 11px;
   border-color: var(--md-sys-color-primary);
   background-color: var(--md-sys-color-primary-container);
 }
@@ -874,8 +826,8 @@ canvas#whiteboard-canvas {
 .m3-width-pill-btn {
   position: relative;
   height: 32px;
-  min-width: 46px;
-  padding: 0 10px;
+  min-width: 44px;
+  padding: 0 8px;
   border-radius: var(--md-sys-shape-corner-full);
   background-color: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
@@ -899,27 +851,22 @@ canvas#whiteboard-canvas {
 }
 
 /* ==========================================================================
-   M3 Expressive Popovers (Color Studio, Width Slider, Seed Picker, Backup Menu)
+   Viewport-Safe M3 Expressive Popovers (Fixed Positioning, Never Clipped)
    ========================================================================== */
 
-.m3-popover-anchor {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
 .m3-popover {
-  position: absolute;
-  z-index: 100;
+  position: fixed;
+  z-index: 120;
   background-color: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface);
   border: 1.5px solid var(--md-sys-color-outline-variant);
   border-radius: 24px;
   box-shadow: var(--elevation-popover);
   padding: 16px;
+  max-width: calc(100vw - 24px);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(10px) scale(0.92);
+  transform: scale(0.92);
   transition: opacity 0.18s ease,
               transform 0.38s var(--md-sys-motion-spring-fast-spatial);
 }
@@ -927,49 +874,27 @@ canvas#whiteboard-canvas {
 .m3-popover.open {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
-}
-
-/* Header Popovers drop down from top right */
-.m3-seed-popover,
-.m3-menu-popover {
-  top: calc(100% + 10px);
-  right: 0;
-  transform-origin: top right;
+  transform: scale(1);
 }
 
 .m3-seed-popover {
-  width: 240px;
+  width: 244px;
 }
 
 .m3-menu-popover {
-  width: 236px;
+  width: 240px;
   padding: 10px;
 }
 
-/* Toolbar Popovers pop up above floating toolbar */
-.m3-color-studio-popover,
-.m3-width-popover {
-  bottom: calc(100% + 16px);
-  left: 50%;
-  transform: translateX(-50%) translateY(12px) scale(0.92);
-  transform-origin: bottom center;
-}
-
-.m3-color-studio-popover.open,
-.m3-width-popover.open {
-  transform: translateX(-50%) translateY(0) scale(1);
-}
-
 .m3-color-studio-popover {
-  width: 268px;
+  width: 272px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 .m3-width-popover {
-  width: 230px;
+  width: 236px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1017,6 +942,7 @@ canvas#whiteboard-canvas {
 .m3-spectrum-wrapper {
   position: relative;
   width: 232px;
+  max-width: 100%;
   height: 136px;
   border-radius: 16px;
   overflow: hidden;
@@ -1291,7 +1217,7 @@ md-slider {
 }
 
 /* ==========================================================================
-   M3 Expressive Dialog & Snackbar
+   M3 Expressive Dialogs & Snackbar
    ========================================================================== */
 
 .m3-dialog {
@@ -1300,7 +1226,7 @@ md-slider {
   border: none;
   background: transparent;
   max-width: 380px;
-  width: 90vw;
+  width: 92vw;
 }
 
 .m3-dialog::backdrop {
@@ -1322,15 +1248,23 @@ md-slider {
   box-shadow: var(--elevation-popover);
 }
 
-.m3-dialog-icon.danger {
+.m3-dialog-icon {
   width: 48px;
   height: 48px;
   border-radius: 16px;
-  background-color: var(--md-sys-color-error-container);
-  color: var(--md-sys-color-on-error-container);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.m3-dialog-icon.primary {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.m3-dialog-icon.danger {
+  background-color: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
 }
 
 .m3-dialog-title {
@@ -1344,16 +1278,36 @@ md-slider {
   color: var(--md-sys-color-on-surface-variant);
 }
 
+.m3-dialog-text-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 2px solid var(--md-sys-color-outline-variant);
+  background-color: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.m3-dialog-text-input:focus {
+  border-color: var(--md-sys-color-primary);
+}
+
 .m3-dialog-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
   width: 100%;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .m3-text-btn,
+.m3-filled-primary-btn,
 .m3-filled-danger-btn {
   position: relative;
   height: 40px;
@@ -1381,6 +1335,15 @@ md-slider {
   border-radius: 12px;
 }
 
+.m3-filled-primary-btn {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.m3-filled-primary-btn:hover {
+  border-radius: 12px;
+}
+
 .m3-filled-danger-btn {
   background-color: var(--md-sys-color-error);
   color: var(--md-sys-color-on-error);
@@ -1394,7 +1357,8 @@ md-slider {
 .m3-snackbar {
   position: fixed;
   top: 72px;
-  right: 20px;
+  right: 16px;
+  max-width: calc(100vw - 32px);
   padding: 10px 18px;
   border-radius: 16px;
   background-color: var(--md-sys-color-inverse-surface);
@@ -1416,10 +1380,10 @@ md-slider {
 }
 
 /* ==========================================================================
-   Responsive Design
+   Tablet & Mobile Responsive Design
    ========================================================================== */
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .m3-save-chip .status-text,
   .m3-tonal-btn .btn-label-text {
     display: none;
@@ -1432,24 +1396,8 @@ md-slider {
   }
 
   .m3-tonal-btn {
-    width: 40px;
+    width: 38px;
     padding: 0;
-  }
-
-  .m3-board-tab {
-    width: 152px;
-    min-width: 152px;
-    max-width: 152px;
-    flex: 0 0 152px;
-  }
-}
-
-@media (max-width: 720px) {
-  .m3-floating-toolbar {
-    bottom: 14px;
-    padding: 6px 10px;
-    gap: 4px;
-    max-width: 96vw;
   }
 
   .tool-label {
@@ -1458,5 +1406,130 @@ md-slider {
 
   .m3-tool-btn {
     padding: 0 10px;
+  }
+}
+
+/* Mobile Layout (<= 768px):
+   - 2-tier Top App Bar so Board Tabs have full horizontal width and never get crushed
+   - 2-row Floating Toolbar Dock so all 8 colors + all tools fit 100% on screen */
+@media (max-width: 768px) {
+  .m3-top-app-bar {
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    gap: 8px;
+    min-height: auto;
+  }
+
+  .m3-header-tabs-section {
+    display: contents;
+  }
+
+  .m3-brand-mark {
+    order: 1;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    border-radius: 12px;
+  }
+
+  .m3-header-actions {
+    order: 2;
+    margin-left: auto;
+    gap: 6px;
+  }
+
+  .m3-board-tabs-wrapper {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    padding-top: 6px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .m3-board-tabs {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .m3-board-tab {
+    height: 36px;
+    padding: 0 13px;
+  }
+
+  .m3-tab-title {
+    font-size: 13px;
+  }
+
+  .m3-tab-ctrl-btn {
+    width: 34px !important;
+    height: 34px !important;
+    flex: 0 0 34px !important;
+  }
+
+  /* 2-Row Mobile Floating Toolbar Dock */
+  .m3-floating-toolbar {
+    flex-direction: column;
+    bottom: max(10px, env(safe-area-inset-bottom, 10px));
+    width: calc(100vw - 16px);
+    max-width: 400px;
+    padding: 8px 10px;
+    gap: 6px;
+    border-radius: 22px;
+  }
+
+  .desktop-only-divider {
+    display: none;
+  }
+
+  .m3-toolbar-main-row {
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .colors-group {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    gap: 2px;
+  }
+
+  .m3-tool-btn {
+    height: 36px;
+    padding: 0 9px;
+  }
+
+  .m3-tool-btn.action-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .width-btn {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+  }
+
+  .m3-width-pill-btn {
+    height: 30px;
+    min-width: 40px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+
+  .m3-snackbar {
+    top: auto;
+    bottom: 132px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%) translateY(10px) scale(0.94);
+    white-space: nowrap;
+  }
+
+  .m3-snackbar.show {
+    transform: translateX(-50%) translateY(0) scale(1);
   }
 }
