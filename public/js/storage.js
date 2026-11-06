@@ -1,8 +1,17 @@
 /**
- * storage.js - Manages multi-board persistent caching, state, and serialization
+ * storage.js - Manages multi-board persistent caching, custom colors, M3 theme seed, and serialization
  */
 
 const STORAGE_KEY = 'whiteboard_app_state_v2';
+
+const DEFAULT_CUSTOM_COLORS = [
+  '#06b6d4', // Cyan
+  '#84cc16', // Lime
+  '#f43f5e', // Rose
+  '#a855f7', // Purple
+  '#14b8a6', // Teal
+  '#6366f1'  // Indigo
+];
 
 export class BoardStorage {
   constructor() {
@@ -18,6 +27,12 @@ export class BoardStorage {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.boards) && parsed.boards.length > 0) {
+          if (!Array.isArray(parsed.customColors)) {
+            parsed.customColors = [...DEFAULT_CUSTOM_COLORS];
+          }
+          if (!parsed.seedColor) {
+            parsed.seedColor = '#6750A4';
+          }
           return parsed;
         }
       }
@@ -30,7 +45,9 @@ export class BoardStorage {
     return {
       activeBoardId: defaultBoard.id,
       boards: [defaultBoard],
-      theme: 'light'
+      theme: 'light',
+      seedColor: '#6750A4',
+      customColors: [...DEFAULT_CUSTOM_COLORS]
     };
   }
 
@@ -166,7 +183,8 @@ export class BoardStorage {
     if (index !== -1) {
       this.state.boards.splice(index, 1);
       if (this.state.activeBoardId === id) {
-        this.state.activeBoardId = this.state.boards[0].id;
+        const nextIndex = Math.min(index, this.state.boards.length - 1);
+        this.state.activeBoardId = this.state.boards[nextIndex].id;
       }
       this.saveState();
       return { deleted: true, activeBoard: this.getActiveBoard() };
@@ -189,7 +207,7 @@ export class BoardStorage {
   }
 
   /**
-   * Get / Set Theme
+   * Get / Set Theme ('light' | 'dark')
    */
   getTheme() {
     return this.state.theme || 'light';
@@ -198,6 +216,40 @@ export class BoardStorage {
   setTheme(theme) {
     this.state.theme = theme === 'dark' ? 'dark' : 'light';
     this.saveState();
+  }
+
+  /**
+   * Get / Set M3 Expressive Seed Color
+   */
+  getSeedColor() {
+    return this.state.seedColor || '#6750A4';
+  }
+
+  setSeedColor(hex) {
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+      this.state.seedColor = hex;
+      this.saveState();
+    }
+  }
+
+  /**
+   * Get / Add / Remove Custom Pen Colors
+   */
+  getCustomColors() {
+    if (!Array.isArray(this.state.customColors)) {
+      this.state.customColors = [...DEFAULT_CUSTOM_COLORS];
+    }
+    return this.state.customColors;
+  }
+
+  addCustomColor(hex) {
+    const normalized = (hex || '').trim().toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(normalized)) return this.getCustomColors();
+    const list = this.getCustomColors().filter(c => c.toLowerCase() !== normalized);
+    list.unshift(normalized);
+    this.state.customColors = list.slice(0, 12);
+    this.saveState();
+    return this.state.customColors;
   }
 
   /**
@@ -221,7 +273,11 @@ export class BoardStorage {
     try {
       const data = JSON.parse(jsonString);
       if (data && Array.isArray(data.boards) && data.boards.length > 0) {
-        this.state = data;
+        this.state = {
+          ...data,
+          seedColor: data.seedColor || this.state.seedColor || '#6750A4',
+          customColors: Array.isArray(data.customColors) ? data.customColors : this.getCustomColors()
+        };
         if (!this.state.activeBoardId || !this.state.boards.some(b => b.id === this.state.activeBoardId)) {
           this.state.activeBoardId = this.state.boards[0].id;
         }
@@ -234,4 +290,3 @@ export class BoardStorage {
     return false;
   }
 }
-

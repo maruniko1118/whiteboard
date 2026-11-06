@@ -1,21 +1,29 @@
 /**
  * canvas.js - High-performance HTML5 Canvas Vector Engine
- * Handles smooth bezier curves, multi-color rendering, Retina scaling, and theme adaptation
+ * Handles smooth Bézier curves, preset + arbitrary custom color rendering, Retina scaling, and theme adaptation
  */
 
-// Color definition map
-const PALETTE_COLORS = {
+// Preset color map (with theme-adaptive contrast)
+export const PALETTE_COLORS = {
   light: {
     black: '#0f172a',
     red: '#ef4444',
-    yellow: '#d97706', // Slightly deeper yellow on white for strong contrast
-    blue: '#2563eb'
+    orange: '#f97316',
+    yellow: '#d97706',
+    green: '#10b981',
+    blue: '#2563eb',
+    purple: '#8b5cf6',
+    pink: '#ec4899'
   },
   dark: {
-    black: '#ffffff', // In dark theme, black is rendered as pure white!
+    black: '#ffffff', // In dark theme, adaptive 'black' renders as crisp white
     red: '#f87171',
+    orange: '#fb923c',
     yellow: '#facc15',
-    blue: '#60a5fa'
+    green: '#34d399',
+    blue: '#60a5fa',
+    purple: '#a78bfa',
+    pink: '#f472b6'
   }
 };
 
@@ -27,8 +35,9 @@ export class WhiteboardCanvas {
 
     // Current Drawing Config
     this.currentTool = 'pen'; // 'pen' | 'eraser'
-    this.currentColorKey = 'black'; // 'black' | 'red' | 'yellow' | 'blue'
-    this.currentWidth = 5; // 2 | 5 | 12
+    this.currentColorKey = 'black'; // preset key or 'custom'
+    this.currentCustomColor = '#6750A4'; // custom hex when currentColorKey === 'custom'
+    this.currentWidth = 5; // 1..48
     this.theme = options.theme || 'light';
 
     // State
@@ -51,6 +60,7 @@ export class WhiteboardCanvas {
    */
   setupCanvasSize() {
     const rect = this.container.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
     this.dpr = window.devicePixelRatio || 1;
     this.width = rect.width;
     this.height = rect.height;
@@ -60,6 +70,7 @@ export class WhiteboardCanvas {
     this.canvas.style.width = `${rect.width}px`;
     this.canvas.style.height = `${rect.height}px`;
 
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(this.dpr, this.dpr);
     this.redrawAll();
   }
@@ -73,15 +84,21 @@ export class WhiteboardCanvas {
   }
 
   /**
-   * Resolve stroke color based on current theme
+   * Resolve stroke color based on preset key, custom hex, and current theme
    */
   resolveColor(stroke) {
     if (stroke.tool === 'eraser') {
       return null;
     }
+    if (stroke.customColor && stroke.colorKey === 'custom') {
+      return stroke.customColor;
+    }
     const colorKey = stroke.colorKey || 'black';
+    if (colorKey.startsWith('#') || colorKey.startsWith('rgb') || colorKey.startsWith('hsl')) {
+      return colorKey;
+    }
     const palette = PALETTE_COLORS[this.theme] || PALETTE_COLORS.light;
-    return palette[colorKey] || palette.black;
+    return palette[colorKey] || stroke.customColor || palette.black;
   }
 
   /**
@@ -92,26 +109,23 @@ export class WhiteboardCanvas {
     this.undoStack = boardData.undoStack || [];
     this.redoStack = boardData.redoStack || [];
     this.redrawAll();
-    this.notifyStateChange();
+    this.notifyStateChange({ isBoardLoad: true });
   }
 
   /**
    * Attach Pointer and Touch events
    */
   attachEventListeners() {
-    // Window Resize Observer
     const resizeObserver = new ResizeObserver(() => {
       this.setupCanvasSize();
     });
     resizeObserver.observe(this.container);
 
-    // Pointer Events (supports Mouse, Touch, Stylus seamlessly)
     this.canvas.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
     this.canvas.addEventListener('pointermove', (e) => this.handlePointerMove(e));
     window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
     window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
 
-    // Prevent default touch gestures (scrolling/pinch-zoom) on canvas
     this.canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
     this.canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   }
@@ -126,7 +140,7 @@ export class WhiteboardCanvas {
   }
 
   handlePointerDown(e) {
-    if (e.button !== 0 && e.pointerType === 'mouse') return; // Left-click only
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     this.canvas.setPointerCapture(e.pointerId);
 
     const pos = this.getPointerPos(e);
@@ -136,38 +150,33 @@ export class WhiteboardCanvas {
       id: 's_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       tool: this.currentTool,
       colorKey: this.currentColorKey,
-      width: this.currentTool === 'eraser' ? this.currentWidth * 2.5 : this.currentWidth,
+      customColor: this.currentColorKey === 'custom' ? this.currentCustomColor : null,
+      width: this.currentTool === 'eraser' ? Math.max(12, this.currentWidth * 2.5) : this.currentWidth,
       points: [pos]
     };
 
-    // Render initial dot
     this.renderStrokeLive(this.currentStroke);
   }
 
   handlePointerMove(e) {
     if (!this.isDrawing || !this.currentStroke) return;
     const pos = this.getPointerPos(e);
-    
-    // Add point to stroke
     this.currentStroke.points.push(pos);
-
-    // Render incremental stroke
     this.renderStrokeIncremental(this.currentStroke);
   }
 
-  handlePointerUp(e) {
+  handlePointerUp() {
     if (!this.isDrawing) return;
     this.isDrawing = false;
 
     if (this.currentStroke && this.currentStroke.points.length > 0) {
-      // Push copy to undo stack before committing new stroke
       this.undoStack.push([...this.strokes]);
-      if (this.undoStack.length > 50) this.undoStack.shift(); // Max 50 undo steps
-      this.redoStack = []; // Clear redo stack on new action
+      if (this.undoStack.length > 50) this.undoStack.shift();
+      this.redoStack = [];
 
       this.strokes.push(this.currentStroke);
       this.redrawAll();
-      this.notifyStateChange();
+      this.notifyStateChange({ isBoardLoad: false });
     }
     this.currentStroke = null;
   }
@@ -179,7 +188,7 @@ export class WhiteboardCanvas {
     if (!stroke || !stroke.points || stroke.points.length === 0) return;
 
     ctx.save();
-    
+
     if (stroke.tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.strokeStyle = 'rgba(0,0,0,1)';
@@ -195,7 +204,6 @@ export class WhiteboardCanvas {
     const points = stroke.points;
 
     if (points.length === 1) {
-      // Single point dot
       ctx.beginPath();
       ctx.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2);
       ctx.fillStyle = ctx.strokeStyle;
@@ -210,7 +218,6 @@ export class WhiteboardCanvas {
     if (points.length === 2) {
       ctx.lineTo(points[1].x, points[1].y);
     } else {
-      // Quadratic Bézier curve through midpoints for ultra smooth freehand lines
       for (let i = 1; i < points.length - 1; i++) {
         const xc = (points[i].x + points[i + 1].x) / 2;
         const yc = (points[i].y + points[i + 1].y) / 2;
@@ -232,7 +239,6 @@ export class WhiteboardCanvas {
     if (len < 2) return;
 
     if (stroke.tool === 'eraser') {
-      // For eraser, full redraw of active state ensures smooth masking
       this.redrawAll();
       this.drawSingleStroke(this.ctx, stroke);
       return;
@@ -293,7 +299,7 @@ export class WhiteboardCanvas {
     this.redoStack.push([...this.strokes]);
     this.strokes = this.undoStack.pop() || [];
     this.redrawAll();
-    this.notifyStateChange();
+    this.notifyStateChange({ isBoardLoad: false });
   }
 
   /**
@@ -304,7 +310,7 @@ export class WhiteboardCanvas {
     this.undoStack.push([...this.strokes]);
     this.strokes = this.redoStack.pop() || [];
     this.redrawAll();
-    this.notifyStateChange();
+    this.notifyStateChange({ isBoardLoad: false });
   }
 
   /**
@@ -316,12 +322,9 @@ export class WhiteboardCanvas {
     this.redoStack = [];
     this.strokes = [];
     this.redrawAll();
-    this.notifyStateChange();
+    this.notifyStateChange({ isBoardLoad: false });
   }
 
-  /**
-   * Check undo / redo availability
-   */
   canUndo() {
     return this.strokes.length > 0 || this.undoStack.length > 0;
   }
@@ -330,21 +333,19 @@ export class WhiteboardCanvas {
     return this.redoStack.length > 0;
   }
 
-  /**
-   * Notify state change callback
-   */
-  notifyStateChange() {
+  notifyStateChange(meta = {}) {
     this.onStateChange({
       strokes: this.strokes,
       undoStack: this.undoStack,
       redoStack: this.redoStack,
       canUndo: this.canUndo(),
-      canRedo: this.canRedo()
+      canRedo: this.canRedo(),
+      isBoardLoad: Boolean(meta.isBoardLoad)
     });
   }
 
   /**
-   * Export current canvas as PNG image Blob / Data URL
+   * Export current canvas as PNG image Blob
    */
   exportAsPngBlob() {
     const offscreen = document.createElement('canvas');
@@ -352,14 +353,14 @@ export class WhiteboardCanvas {
     offscreen.height = this.height * this.dpr;
     const offCtx = offscreen.getContext('2d');
 
-    // Scale
     offCtx.scale(this.dpr, this.dpr);
 
-    // Draw background according to theme
-    offCtx.fillStyle = this.theme === 'dark' ? '#12161f' : '#ffffff';
+    const computedBg = getComputedStyle(document.documentElement)
+      .getPropertyValue('--md-sys-color-surface-container-lowest')
+      .trim();
+    offCtx.fillStyle = computedBg || (this.theme === 'dark' ? '#0f131a' : '#ffffff');
     offCtx.fillRect(0, 0, this.width, this.height);
 
-    // Draw all strokes
     for (const stroke of this.strokes) {
       this.drawSingleStroke(offCtx, stroke);
     }
@@ -371,4 +372,3 @@ export class WhiteboardCanvas {
     });
   }
 }
-

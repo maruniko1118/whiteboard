@@ -14,7 +14,10 @@
   },
   "homepage": "https://github.com/maruniko1118/whiteboard#readme",
   "dependencies": {
-    "hono": "^4.13.4"
+    "@material/material-color-utilities": "^0.4.0",
+    "@material/web": "^2.5.0",
+    "hono": "^4.13.4",
+    "motion": "^14.10.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.53.1",
@@ -24,5 +27,3 @@
     "wrangler": "^4.125.0"
   }
 }
-
-
