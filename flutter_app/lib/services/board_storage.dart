@@ -465,4 +465,8 @@ class BoardStorage {
       return false;
     }
   }
+
+  void openExternalUrl(String url) {
+    _backend.openExternalUrl(url);
+  }
 }

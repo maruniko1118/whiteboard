@@ -33,6 +33,7 @@ abstract class StorageBackend {
     required String mimeType,
   });
   Future<String?> pickJsonTextFile();
+  void openExternalUrl(String url);
 }
 
 StorageBackend createStorageBackend() => createPlatformStorageBackend();

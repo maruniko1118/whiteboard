@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -16,10 +17,17 @@ class WhiteboardHome extends StatefulWidget {
     super.key,
     required this.storage,
     required this.onThemeChanged,
+    this.showApkDownload = kIsWeb,
   });
+
+  static const String apkDownloadUrl =
+      'https://github.com/maruniko1118/whiteboard/releases/latest/download/whiteboard.apk';
+  static const String releasesPageUrl =
+      'https://github.com/maruniko1118/whiteboard/releases';
 
   final BoardStorage storage;
   final void Function(String theme, String seedColor) onThemeChanged;
+  final bool showApkDownload;
 
   @override
   State<WhiteboardHome> createState() => _WhiteboardHomeState();
@@ -230,6 +238,19 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
     }
   }
 
+  Future<void> _openApkDownloadDialog() async {
+    await showApkDownloadDialog(
+      context,
+      onDownloadLatestApk: () {
+        widget.storage.openExternalUrl(WhiteboardHome.apkDownloadUrl);
+        _showToast('Android APK のダウンロードページを開きました');
+      },
+      onOpenReleasesPage: () {
+        widget.storage.openExternalUrl(WhiteboardHome.releasesPageUrl);
+      },
+    );
+  }
+
   Size _canvasViewportSize() {
     final box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     return box?.size ?? MediaQuery.sizeOf(context);
@@ -369,6 +390,9 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
                     ),
                     onExportPng: _exportPng,
                     onToggleTheme: _toggleTheme,
+                    onDownloadApk: widget.showApkDownload
+                        ? _openApkDownloadDialog
+                        : null,
                   );
                 },
               ),

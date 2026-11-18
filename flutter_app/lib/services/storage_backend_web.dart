@@ -285,6 +285,15 @@ class WebStorageBackend implements StorageBackend {
     return completer.future;
   }
 
+  @override
+  void openExternalUrl(String url) {
+    final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.click();
+  }
+
   Map<String, dynamic> _deepMap(Map<Object?, Object?> raw) {
     final result = <String, dynamic>{};
     raw.forEach((key, value) {

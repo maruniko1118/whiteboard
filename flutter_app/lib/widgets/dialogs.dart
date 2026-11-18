@@ -119,3 +119,78 @@ Future<bool> showConfirmActionDialog(
 
   return result ?? false;
 }
+
+Future<void> showApkDownloadDialog(
+  BuildContext context, {
+  required VoidCallback onDownloadLatestApk,
+  required VoidCallback onOpenReleasesPage,
+}) async {
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) {
+      final colorScheme = Theme.of(ctx).colorScheme;
+      return AlertDialog(
+        icon: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            Icons.android_rounded,
+            size: 28,
+            color: colorScheme.onPrimaryContainer,
+          ),
+        ),
+        title: const Text(
+          'Android アプリ (.apk)',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'GitHub Releases から最新の Android 版 Whiteboard (whiteboard.apk) をダウンロードできます。',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '※ 端末の「不明なアプリのインストール」を許可してインストールしてください。',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              onOpenReleasesPage();
+            },
+            child: const Text('リリース一覧 (GitHub)'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              onDownloadLatestApk();
+            },
+            icon: const Icon(Icons.download_rounded, size: 18),
+            label: const Text('APK をダウンロード'),
+          ),
+        ],
+      );
+    },
+  );
+}

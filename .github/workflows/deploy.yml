@@ -1,4 +1,4 @@
-name: Deploy Whiteboard (Flutter Web + Cloudflare Workers)
+name: Deploy Whiteboard (Flutter Web + Android APK)
 
 on:
   push:
@@ -6,12 +6,21 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Java (for Android APK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
       - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
@@ -38,6 +47,25 @@ jobs:
       - name: Build Flutter Web (Wasm)
         working-directory: flutter_app
         run: flutter build web --wasm
+
+      - name: Build Android APK
+        working-directory: flutter_app
+        run: flutter build apk --release
+
+      - name: Publish Android APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.0.${{ github.run_number }}"
+          cp flutter_app/build/app/outputs/flutter-apk/app-release.apk whiteboard.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" whiteboard.apk --clobber
+          else
+            gh release create "$TAG" whiteboard.apk \
+              --latest \
+              --title "Whiteboard $TAG" \
+              --notes "Automated Android APK release built from commit ${{ github.sha }}."
+          fi
 
       - name: Typecheck Workers
         run: npm run typecheck

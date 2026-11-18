@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   material_ui: ^1.1.0
+  path_provider: ^2.1.5
   web: ^1.1.0
 
   # The following adds the Cupertino Icons font to your application.

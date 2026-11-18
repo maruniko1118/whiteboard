@@ -6,6 +6,7 @@ import 'package:whiteboard_app/models/whiteboard_models.dart';
 import 'package:whiteboard_app/services/board_storage.dart';
 import 'package:whiteboard_app/services/storage_backend_io.dart';
 import 'package:whiteboard_app/theme/app_theme.dart';
+import 'package:whiteboard_app/widgets/whiteboard_home.dart';
 
 void main() {
   group('WhiteboardController', () {
@@ -100,7 +101,9 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      final storage = BoardStorage(backend: IoStorageBackend());
+      final storage = BoardStorage(
+        backend: IoStorageBackend(useFileSystem: false),
+      );
       await storage.init();
 
       await tester.pumpWidget(WhiteboardApp(storage: storage));
@@ -119,6 +122,31 @@ void main() {
       await tester.tap(find.byTooltip('テーマ切り替え (ライト / ダーク) [T]'));
       await tester.pumpAndSettle();
       expect(storage.state.theme, 'dark');
+    });
+
+    testWidgets('opens APK download dialog and triggers GitHub release URL', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final backend = IoStorageBackend(useFileSystem: false);
+      final storage = BoardStorage(backend: backend);
+      await storage.init();
+
+      await tester.pumpWidget(
+        WhiteboardApp(storage: storage, showApkDownload: true),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Androidアプリ (.apk) をダウンロード'));
+      await tester.pumpAndSettle();
+      expect(find.text('Android アプリ (.apk)'), findsOneWidget);
+
+      await tester.tap(find.text('APK をダウンロード'));
+      await tester.pumpAndSettle();
+      expect(backend.lastOpenedUrl, WhiteboardHome.apkDownloadUrl);
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'services/board_storage.dart';
@@ -12,9 +13,14 @@ Future<void> main() async {
 }
 
 class WhiteboardApp extends StatefulWidget {
-  const WhiteboardApp({super.key, required this.storage});
+  const WhiteboardApp({
+    super.key,
+    required this.storage,
+    this.showApkDownload = kIsWeb,
+  });
 
   final BoardStorage storage;
+  final bool showApkDownload;
 
   @override
   State<WhiteboardApp> createState() => _WhiteboardAppState();
@@ -56,6 +62,7 @@ class _WhiteboardAppState extends State<WhiteboardApp> {
       home: WhiteboardHome(
         storage: widget.storage,
         onThemeChanged: _handleThemeChanged,
+        showApkDownload: widget.showApkDownload,
       ),
     );
   }

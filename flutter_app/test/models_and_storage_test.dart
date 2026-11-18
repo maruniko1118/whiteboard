@@ -78,7 +78,7 @@ void main() {
 
   group('BoardStorage lifecycle', () {
     test('creates, renames, duplicates, deletes, and imports boards', () async {
-      final backend = IoStorageBackend();
+      final backend = IoStorageBackend(useFileSystem: false);
       final storage = BoardStorage(backend: backend);
       await storage.init();
 

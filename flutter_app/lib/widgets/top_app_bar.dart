@@ -19,6 +19,7 @@ class WhiteboardTopAppBar extends StatelessWidget {
     required this.onOpenBackupMenu,
     required this.onExportPng,
     required this.onToggleTheme,
+    this.onDownloadApk,
   });
 
   final List<BoardData> boards;
@@ -36,6 +37,7 @@ class WhiteboardTopAppBar extends StatelessWidget {
   final VoidCallback onOpenBackupMenu;
   final VoidCallback onExportPng;
   final VoidCallback onToggleTheme;
+  final VoidCallback? onDownloadApk;
 
   String _saveTooltip() {
     if (lastSavedAt == null) {
@@ -274,6 +276,15 @@ class WhiteboardTopAppBar extends StatelessWidget {
             ),
           ),
         ),
+        if (onDownloadApk != null) ...[
+          SizedBox(width: isMobile ? 5 : 8),
+          _HeaderIconButton(
+            icon: Icons.android_rounded,
+            tooltip: 'Androidアプリ (.apk) をダウンロード',
+            size: btnSize,
+            onPressed: onDownloadApk!,
+          ),
+        ],
         SizedBox(width: isMobile ? 5 : 8),
         _HeaderIconButton(
           icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
