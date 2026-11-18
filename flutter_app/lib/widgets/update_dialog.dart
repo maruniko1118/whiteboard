@@ -206,33 +206,40 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isCompactHeight = MediaQuery.sizeOf(context).height <= 520;
 
     return PopScope(
       canPop: !_isBusy,
       child: AlertDialog(
-        icon: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: _stage == _UpdateStage.error
-                ? colorScheme.errorContainer
-                : colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            switch (_stage) {
-              _UpdateStage.upToDate => Icons.check_circle_outline_rounded,
-              _UpdateStage.error => Icons.error_outline_rounded,
-              _UpdateStage.permissionRequired =>
-                Icons.admin_panel_settings_outlined,
-              _ => Icons.system_update_rounded,
-            },
-            size: 26,
-            color: _stage == _UpdateStage.error
-                ? colorScheme.onErrorContainer
-                : colorScheme.onPrimaryContainer,
-          ),
-        ),
+        scrollable: true,
+        insetPadding: isCompactHeight
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        icon: isCompactHeight
+            ? null
+            : Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _stage == _UpdateStage.error
+                      ? colorScheme.errorContainer
+                      : colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  switch (_stage) {
+                    _UpdateStage.upToDate => Icons.check_circle_outline_rounded,
+                    _UpdateStage.error => Icons.error_outline_rounded,
+                    _UpdateStage.permissionRequired =>
+                      Icons.admin_panel_settings_outlined,
+                    _ => Icons.system_update_rounded,
+                  },
+                  size: 26,
+                  color: _stage == _UpdateStage.error
+                      ? colorScheme.onErrorContainer
+                      : colorScheme.onPrimaryContainer,
+                ),
+              ),
         title: Text(
           switch (_stage) {
             _UpdateStage.checking => 'アップデートを確認中',

@@ -1,7 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../models/whiteboard_models.dart';
 import '../theme/app_theme.dart';
+import 'responsive_layout.dart';
+
+enum _ToolbarCompactMode {
+  desktop,
+  portrait,
+  landscape,
+}
 
 class FloatingToolbar extends StatelessWidget {
   const FloatingToolbar({
@@ -43,45 +52,66 @@ class FloatingToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isMobile = screenWidth <= 768;
-    final hideToolLabels = screenWidth <= 960;
+    final layout = WhiteboardLayout.of(context);
+    final compactMode = switch (layout.mode) {
+      WhiteboardLayoutMode.desktop => _ToolbarCompactMode.desktop,
+      WhiteboardLayoutMode.mobilePortrait => _ToolbarCompactMode.portrait,
+      WhiteboardLayoutMode.mobileLandscape => _ToolbarCompactMode.landscape,
+    };
+    final hideToolLabels = layout.isCompactActions || layout.isMobile;
+    final availableWidth = math.max(
+      240.0,
+      layout.size.width - layout.padding.horizontal - 16,
+    );
 
     return Material(
       elevation: 8,
       shadowColor: Colors.black.withValues(alpha: isDark ? 0.55 : 0.18),
-      color: colorScheme.surfaceContainerHigh,
+      color: colorScheme.surfaceContainerHigh.withValues(
+        alpha: compactMode == _ToolbarCompactMode.landscape ? 0.95 : 1.0,
+      ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(isMobile ? 22 : 28),
+        borderRadius: BorderRadius.circular(
+          compactMode == _ToolbarCompactMode.desktop ? 28 : 20,
+        ),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: isMobile ? 396 : screenWidth - 24,
+          maxWidth: compactMode == _ToolbarCompactMode.portrait
+              ? math.min(396.0, availableWidth)
+              : availableWidth,
         ),
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 12 : 14,
-            vertical: isMobile ? 8 : 8,
+            horizontal: compactMode == _ToolbarCompactMode.desktop ? 14 : 10,
+            vertical: switch (compactMode) {
+              _ToolbarCompactMode.desktop => 8,
+              _ToolbarCompactMode.portrait => 6,
+              _ToolbarCompactMode.landscape => 5,
+            },
           ),
-          child: isMobile
+          child: compactMode == _ToolbarCompactMode.portrait
               ? Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildMainRow(
                       context,
-                      isMobile: true,
+                      compactMode: compactMode,
                       hideToolLabels: true,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Container(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: 5),
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(color: colorScheme.outlineVariant),
                         ),
                       ),
-                      child: _buildColorsRow(context, isMobile: true),
+                      child: _buildColorsRow(
+                        context,
+                        compactMode: compactMode,
+                      ),
                     ),
                   ],
                 )
@@ -92,11 +122,16 @@ class FloatingToolbar extends StatelessWidget {
                     children: [
                       _buildMainRow(
                         context,
-                        isMobile: false,
+                        compactMode: compactMode,
                         hideToolLabels: hideToolLabels,
                       ),
-                      _ToolbarDivider(),
-                      _buildColorsRow(context, isMobile: false),
+                      _ToolbarDivider(
+                        compact: compactMode == _ToolbarCompactMode.landscape,
+                      ),
+                      _buildColorsRow(
+                        context,
+                        compactMode: compactMode,
+                      ),
                     ],
                   ),
                 ),
@@ -107,16 +142,19 @@ class FloatingToolbar extends StatelessWidget {
 
   Widget _buildMainRow(
     BuildContext context, {
-    required bool isMobile,
+    required _ToolbarCompactMode compactMode,
     required bool hideToolLabels,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final widthInt = currentWidth.round();
+    final isPortrait = compactMode == _ToolbarCompactMode.portrait;
+    final isLandscape = compactMode == _ToolbarCompactMode.landscape;
+    final isDesktop = compactMode == _ToolbarCompactMode.desktop;
 
     return Row(
-      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisSize: isPortrait ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment:
-          isMobile ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
+          isPortrait ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
       children: [
         // Pen & Eraser
         Row(
@@ -130,31 +168,31 @@ class FloatingToolbar extends StatelessWidget {
               tooltip: 'ペンツール (P)',
               isActive: currentTool == ToolType.pen,
               hideLabel: hideToolLabels,
-              isMobile: isMobile,
+              compactMode: compactMode,
               onTap: () => onSelectTool(ToolType.pen),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: isLandscape ? 2 : 4),
             _ToolToggleBtn(
               iconBuilder: (color) => EraserIcon(
                 color: color,
-                size: 20,
+                size: isLandscape ? 18 : 20,
                 filled: currentTool == ToolType.eraser,
               ),
               label: '消しゴム',
               tooltip: '消しゴム (E)',
               isActive: currentTool == ToolType.eraser,
               hideLabel: hideToolLabels,
-              isMobile: isMobile,
+              compactMode: compactMode,
               onTap: () => onSelectTool(ToolType.eraser),
             ),
           ],
         ),
-        _ToolbarDivider(),
+        _ToolbarDivider(compact: !isDesktop),
         // Width presets + slider pill
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!isMobile) ...[
+            if (isDesktop) ...[
               _WidthDotBtn(
                 widthValue: 2,
                 dotSize: 4,
@@ -189,10 +227,12 @@ class FloatingToolbar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   onTap: onOpenWidthPopover,
                   child: Container(
-                    height: isMobile ? 34 : 36,
-                    constraints: BoxConstraints(minWidth: isMobile ? 58 : 62),
+                    height: isDesktop ? 36 : 32,
+                    constraints: BoxConstraints(
+                      minWidth: isDesktop ? 62 : (isLandscape ? 50 : 54),
+                    ),
                     padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 10 : 12,
+                      horizontal: isDesktop ? 12 : 9,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -206,12 +246,12 @@ class FloatingToolbar extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Text(
                           '${widthInt}px',
                           style: TextStyle(
                             fontFamily: 'JetBrains Mono',
-                            fontSize: isMobile ? 11.5 : 12,
+                            fontSize: isDesktop ? 12 : 11.5,
                             fontWeight: FontWeight.w600,
                             color: colorScheme.onSecondaryContainer,
                           ),
@@ -224,7 +264,7 @@ class FloatingToolbar extends StatelessWidget {
             ),
           ],
         ),
-        _ToolbarDivider(),
+        _ToolbarDivider(compact: !isDesktop),
         // Undo / Redo / Clear
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -233,24 +273,24 @@ class FloatingToolbar extends StatelessWidget {
               icon: Icons.undo_rounded,
               tooltip: '元に戻す (Ctrl+Z)',
               enabled: canUndo,
-              isMobile: isMobile,
+              compactMode: compactMode,
               onTap: onUndo,
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: isLandscape ? 2 : 4),
             _ActionIconBtn(
               icon: Icons.redo_rounded,
               tooltip: 'やり直す (Ctrl+Y)',
               enabled: canRedo,
-              isMobile: isMobile,
+              compactMode: compactMode,
               onTap: onRedo,
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: isLandscape ? 2 : 4),
             _ActionIconBtn(
               icon: Icons.delete_sweep_outlined,
               tooltip: 'ボードを全消去',
               enabled: true,
               isDanger: true,
-              isMobile: isMobile,
+              compactMode: compactMode,
               onTap: onClear,
             ),
           ],
@@ -259,18 +299,31 @@ class FloatingToolbar extends StatelessWidget {
     );
   }
 
-  Widget _buildColorsRow(BuildContext context, {required bool isMobile}) {
+  Widget _buildColorsRow(
+    BuildContext context, {
+    required _ToolbarCompactMode compactMode,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final btnSize = isMobile ? 32.0 : 36.0;
-    final swatchSize = isMobile ? 21.0 : 24.0;
+    final isPortrait = compactMode == _ToolbarCompactMode.portrait;
+    final isLandscape = compactMode == _ToolbarCompactMode.landscape;
+    final btnSize = switch (compactMode) {
+      _ToolbarCompactMode.desktop => 36.0,
+      _ToolbarCompactMode.portrait => 30.0,
+      _ToolbarCompactMode.landscape => 28.0,
+    };
+    final swatchSize = switch (compactMode) {
+      _ToolbarCompactMode.desktop => 24.0,
+      _ToolbarCompactMode.portrait => 20.0,
+      _ToolbarCompactMode.landscape => 19.0,
+    };
 
     return Row(
-      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisSize: isPortrait ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment:
-          isMobile ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
+          isPortrait ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
       children: [
         for (var i = 0; i < AppTheme.penPresets.length; i++) ...[
-          if (!isMobile && i > 0) const SizedBox(width: 4),
+          if (!isPortrait && i > 0) SizedBox(width: isLandscape ? 2 : 4),
           _ColorSwatchBtn(
             color: AppTheme.penPresets[i].key == 'black' && isDark
                 ? AppTheme.penPresets[i].darkStroke
@@ -286,7 +339,7 @@ class FloatingToolbar extends StatelessWidget {
             onTap: () => onSelectPresetColor(AppTheme.penPresets[i].key),
           ),
         ],
-        if (!isMobile) const SizedBox(width: 4),
+        if (!isPortrait) SizedBox(width: isLandscape ? 2 : 4),
         // Custom Color Wheel Trigger
         Tooltip(
           message: '自由な色を選択 (カスタムカラーピッカー)',
@@ -342,12 +395,16 @@ class FloatingToolbar extends StatelessWidget {
 }
 
 class _ToolbarDivider extends StatelessWidget {
+  const _ToolbarDivider({this.compact = false});
+
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 24,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
+      height: compact ? 18 : 24,
+      margin: EdgeInsets.symmetric(horizontal: compact ? 6 : 8),
       color: Theme.of(context).colorScheme.outlineVariant,
     );
   }
@@ -485,7 +542,7 @@ class _ToolToggleBtn extends StatelessWidget {
     required this.tooltip,
     required this.isActive,
     required this.hideLabel,
-    required this.isMobile,
+    required this.compactMode,
     required this.onTap,
   }) : assert(icon != null || iconBuilder != null);
 
@@ -495,7 +552,7 @@ class _ToolToggleBtn extends StatelessWidget {
   final String tooltip;
   final bool isActive;
   final bool hideLabel;
-  final bool isMobile;
+  final _ToolbarCompactMode compactMode;
   final VoidCallback onTap;
 
   @override
@@ -504,6 +561,9 @@ class _ToolToggleBtn extends StatelessWidget {
     final foregroundColor = isActive
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurfaceVariant;
+    final isDesktop = compactMode == _ToolbarCompactMode.desktop;
+    final isLandscape = compactMode == _ToolbarCompactMode.landscape;
+
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -514,11 +574,11 @@ class _ToolToggleBtn extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            height: isMobile ? 36 : 38,
-            width: isMobile ? 38 : null,
-            padding: isMobile
-                ? EdgeInsets.zero
-                : EdgeInsets.symmetric(horizontal: hideLabel ? 10 : 12),
+            height: isDesktop ? 38 : (isLandscape ? 32 : 34),
+            width: isDesktop ? null : (isLandscape ? 34 : 36),
+            padding: isDesktop
+                ? EdgeInsets.symmetric(horizontal: hideLabel ? 10 : 12)
+                : EdgeInsets.zero,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -528,7 +588,7 @@ class _ToolToggleBtn extends StatelessWidget {
                 else
                   Icon(
                     icon,
-                    size: 20,
+                    size: isLandscape ? 18 : 20,
                     color: foregroundColor,
                   ),
                 if (!hideLabel) ...[
@@ -604,7 +664,7 @@ class _ActionIconBtn extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.enabled,
-    required this.isMobile,
+    required this.compactMode,
     required this.onTap,
     this.isDanger = false,
   });
@@ -612,14 +672,19 @@ class _ActionIconBtn extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final bool enabled;
-  final bool isMobile;
+  final _ToolbarCompactMode compactMode;
   final bool isDanger;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final size = isMobile ? 36.0 : 38.0;
+    final size = switch (compactMode) {
+      _ToolbarCompactMode.desktop => 38.0,
+      _ToolbarCompactMode.portrait => 34.0,
+      _ToolbarCompactMode.landscape => 32.0,
+    };
+    final iconSize = compactMode == _ToolbarCompactMode.landscape ? 18.0 : 20.0;
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -633,7 +698,7 @@ class _ActionIconBtn extends StatelessWidget {
           height: size,
           child: Icon(
             icon,
-            size: 20,
+            size: iconSize,
             color: enabled
                 ? colorScheme.onSurfaceVariant
                 : colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
@@ -698,7 +763,7 @@ class _ColorSwatchBtn extends StatelessWidget {
             child: isActive
                 ? Icon(
                     Icons.check_rounded,
-                    size: 13,
+                    size: 12,
                     color: isLightInk ? Colors.black : Colors.white,
                   )
                 : null,

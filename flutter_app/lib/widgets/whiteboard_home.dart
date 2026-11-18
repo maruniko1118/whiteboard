@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,9 +9,11 @@ import '../canvas/whiteboard_controller.dart';
 import '../models/whiteboard_models.dart';
 import '../services/app_updater.dart';
 import '../services/board_storage.dart';
+import '../theme/app_theme.dart';
 import 'dialogs.dart';
 import 'floating_toolbar.dart';
 import 'popovers.dart';
+import 'responsive_layout.dart';
 import 'top_app_bar.dart';
 import 'update_dialog.dart';
 import 'zoom_hud.dart';
@@ -46,6 +50,7 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
 
   String _customHex = '#6750A4';
   bool _hasShownAutoUpdatePrompt = false;
+  bool _isFocusMode = false;
 
   @override
   void initState() {
@@ -90,6 +95,10 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
   }
 
   bool get _isDark => widget.storage.state.theme == 'dark';
+
+  void _toggleFocusMode() {
+    setState(() => _isFocusMode = !_isFocusMode);
+  }
 
   void _showToast(String message) {
     if (!mounted) return;
@@ -383,85 +392,142 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
     return KeyEventResult.ignored;
   }
 
+  void _openSeedPicker() {
+    showSeedPickerDialog(
+      context,
+      currentSeedHex: widget.storage.state.seedColor,
+      onSelectSeed: _setSeedColor,
+    );
+  }
+
+  void _openBackupMenu() {
+    showBackupMenuDialog(
+      context,
+      onExportJson: _exportJson,
+      onImportJson: _importJson,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isMobile = screenWidth <= 768;
-    final isNarrowDesktop = screenWidth <= 1120;
+    final layout = WhiteboardLayout.of(context);
+    final showFullTopBar = !_isFocusMode && !layout.isMobileLandscape;
 
     return Focus(
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              ValueListenableBuilder<DateTime?>(
-                valueListenable: widget.storage.lastSavedAt,
-                builder: (context, savedAt, _) {
-                  return ValueListenableBuilder<UpdateCheckResult?>(
-                    valueListenable: _appUpdater.latestCheckResult,
-                    builder: (context, updateResult, _) {
-                      return WhiteboardTopAppBar(
-                        boards: widget.storage.state.boards,
-                        activeBoardId: widget.storage.state.activeBoardId,
-                        isDark: _isDark,
-                        lastSavedAt: savedAt,
-                        tabScrollController: _tabScrollController,
-                        onSelectBoard: _switchBoard,
-                        onRenameBoard: _renameBoard,
-                        onCreateBoard: _createBoard,
-                        onDuplicateBoard: _duplicateActiveBoard,
-                        onDeleteBoard: _deleteActiveBoard,
-                        onOpenSeedPicker: () => showSeedPickerDialog(
-                          context,
-                          currentSeedHex: widget.storage.state.seedColor,
-                          onSelectSeed: _setSeedColor,
-                        ),
-                        onOpenBackupMenu: () => showBackupMenuDialog(
-                          context,
-                          onExportJson: _exportJson,
-                          onImportJson: _importJson,
-                        ),
-                        onExportPng: _exportPng,
-                        onToggleTheme: _toggleTheme,
-                        onDownloadApk: widget.showApkDownload
-                            ? _openApkDownloadDialog
-                            : null,
-                        onCheckAppUpdate: _appUpdater.isSupported
-                            ? _openAppUpdateDialog
-                            : null,
-                        hasAppUpdate: updateResult?.hasUpdate ?? false,
+        body: Column(
+          children: [
+            if (showFullTopBar)
+              ColoredBox(
+                color: colorScheme.surfaceContainer,
+                child: SafeArea(
+                  bottom: false,
+                  child: ValueListenableBuilder<DateTime?>(
+                    valueListenable: widget.storage.lastSavedAt,
+                    builder: (context, savedAt, _) {
+                      return ValueListenableBuilder<UpdateCheckResult?>(
+                        valueListenable: _appUpdater.latestCheckResult,
+                        builder: (context, updateResult, _) {
+                          return WhiteboardTopAppBar(
+                            boards: widget.storage.state.boards,
+                            activeBoardId: widget.storage.state.activeBoardId,
+                            isDark: _isDark,
+                            lastSavedAt: savedAt,
+                            tabScrollController: _tabScrollController,
+                            onSelectBoard: _switchBoard,
+                            onRenameBoard: _renameBoard,
+                            onCreateBoard: _createBoard,
+                            onDuplicateBoard: _duplicateActiveBoard,
+                            onDeleteBoard: _deleteActiveBoard,
+                            onOpenSeedPicker: _openSeedPicker,
+                            onOpenBackupMenu: _openBackupMenu,
+                            onExportPng: _exportPng,
+                            onToggleTheme: _toggleTheme,
+                            onToggleFocusMode: _toggleFocusMode,
+                            onDownloadApk: widget.showApkDownload
+                                ? _openApkDownloadDialog
+                                : null,
+                            onCheckAppUpdate: _appUpdater.isSupported
+                                ? _openAppUpdateDialog
+                                : null,
+                            hasAppUpdate: updateResult?.hasUpdate ?? false,
+                          );
+                        },
                       );
                     },
-                  );
-                },
+                  ),
+                ),
               ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    // Main Drawing Canvas
-                    Positioned.fill(
-                      key: _canvasKey,
-                      child: CanvasGestureLayer(
-                        controller: _canvasController,
-                        backgroundColor: colorScheme.surfaceContainerLowest,
-                        brightness: theme.brightness,
+            Expanded(
+              child: Stack(
+                children: [
+                  // Main Drawing Canvas
+                  Positioned.fill(
+                    key: _canvasKey,
+                    child: CanvasGestureLayer(
+                      controller: _canvasController,
+                      backgroundColor: colorScheme.surfaceContainerLowest,
+                      brightness: theme.brightness,
+                    ),
+                  ),
+                  if (!_isFocusMode && layout.isMobileLandscape)
+                    Positioned(
+                      top: math.max(8.0, layout.padding.top + 4),
+                      left: math.max(8.0, layout.padding.left + 8),
+                      child: ValueListenableBuilder<DateTime?>(
+                        valueListenable: widget.storage.lastSavedAt,
+                        builder: (context, savedAt, _) {
+                          return ValueListenableBuilder<UpdateCheckResult?>(
+                            valueListenable: _appUpdater.latestCheckResult,
+                            builder: (context, updateResult, _) {
+                              return WhiteboardLandscapeHeaderPill(
+                                boards: widget.storage.state.boards,
+                                activeBoardId:
+                                    widget.storage.state.activeBoardId,
+                                isDark: _isDark,
+                                lastSavedAt: savedAt,
+                                onSelectBoard: _switchBoard,
+                                onRenameBoard: _renameBoard,
+                                onCreateBoard: _createBoard,
+                                onDuplicateBoard: _duplicateActiveBoard,
+                                onDeleteBoard: _deleteActiveBoard,
+                                onOpenSeedPicker: _openSeedPicker,
+                                onOpenBackupMenu: _openBackupMenu,
+                                onExportPng: _exportPng,
+                                onToggleTheme: _toggleTheme,
+                                onToggleFocusMode: _toggleFocusMode,
+                                onDownloadApk: widget.showApkDownload
+                                    ? _openApkDownloadDialog
+                                    : null,
+                                onCheckAppUpdate: _appUpdater.isSupported
+                                    ? _openAppUpdateDialog
+                                    : null,
+                                hasAppUpdate: updateResult?.hasUpdate ?? false,
+                              );
+                            },
+                          );
+                        },
                       ),
                     ),
+                  if (!_isFocusMode) ...[
                     // Zoom & Pan HUD
                     ListenableBuilder(
                       listenable: _canvasController,
                       builder: (context, _) {
                         return Positioned(
-                          top: isMobile ? 10 : null,
-                          right: isMobile ? 10 : (isNarrowDesktop ? 12 : 16),
-                          bottom: isMobile
+                          top: layout.isMobileLandscape
+                              ? math.max(8.0, layout.padding.top + 4)
+                              : (layout.isMobilePortrait ? 8.0 : null),
+                          right: layout.isMobile
+                              ? math.max(8.0, layout.padding.right + 8)
+                              : (layout.isNarrowDesktop ? 12.0 : 16.0),
+                          bottom: layout.isMobile
                               ? null
-                              : (isNarrowDesktop ? 84 : 18),
+                              : (layout.isNarrowDesktop ? 84.0 : 18.0),
                           child: ZoomHud(
                             scale: _canvasController.scale,
                             onZoomOut: () => _canvasController.zoomAt(
@@ -484,11 +550,13 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
                     ),
                     // Floating Toolbar Dock
                     Positioned(
-                      left: 8,
-                      right: 8,
-                      bottom: isMobile
-                          ? MediaQuery.paddingOf(context).bottom + 10
-                          : 16,
+                      left: math.max(8.0, layout.padding.left + 8),
+                      right: math.max(8.0, layout.padding.right + 8),
+                      bottom: layout.isDesktop
+                          ? 16.0
+                          : (layout.isMobileLandscape
+                              ? math.max(6.0, layout.padding.bottom)
+                              : math.max(10.0, layout.padding.bottom + 8)),
                       child: Center(
                         child: ListenableBuilder(
                           listenable: _canvasController,
@@ -537,10 +605,177 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
                       ),
                     ),
                   ],
+                  if (_isFocusMode)
+                    Positioned(
+                      right: math.max(10.0, layout.padding.right + 8),
+                      bottom: math.max(10.0, layout.padding.bottom + 6),
+                      child: ListenableBuilder(
+                        listenable: _canvasController,
+                        builder: (context, _) {
+                          final inkColor = AppTheme.resolveStrokeColor(
+                            Stroke(
+                              id: 'preview',
+                              tool: ToolType.pen,
+                              colorKey: _canvasController.currentColorKey,
+                              customColor: _customHex,
+                              width: 1,
+                              points: const [],
+                            ),
+                            theme.brightness,
+                          );
+                          return _FocusModePill(
+                            currentTool: _canvasController.currentTool,
+                            inkColor: inkColor,
+                            canUndo: _canvasController.canUndo,
+                            onUndo: _canvasController.undo,
+                            onToggleTool: () => _canvasController.setTool(
+                              _canvasController.currentTool == ToolType.pen
+                                  ? ToolType.eraser
+                                  : ToolType.pen,
+                            ),
+                            onExitFocusMode: _toggleFocusMode,
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusModePill extends StatelessWidget {
+  const _FocusModePill({
+    required this.currentTool,
+    required this.inkColor,
+    required this.canUndo,
+    required this.onUndo,
+    required this.onToggleTool,
+    required this.onExitFocusMode,
+  });
+
+  final ToolType currentTool;
+  final Color inkColor;
+  final bool canUndo;
+  final VoidCallback onUndo;
+  final VoidCallback onToggleTool;
+  final VoidCallback onExitFocusMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isLightInk = inkColor.computeLuminance() > 0.7;
+
+    return Material(
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.94),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Tooltip(
+              message: '元に戻す',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: canUndo ? onUndo : null,
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Icon(
+                    Icons.undo_rounded,
+                    size: 18,
+                    color: canUndo
+                        ? colorScheme.onSurfaceVariant
+                        : colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 2),
+            Tooltip(
+              message: currentTool == ToolType.pen
+                  ? '消しゴムに切り替え'
+                  : 'ペンに切り替え',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: onToggleTool,
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Center(
+                    child: currentTool == ToolType.pen
+                        ? Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: inkColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isLightInk
+                                    ? colorScheme.outline
+                                    : Colors.white.withValues(alpha: 0.4),
+                                width: 1.5,
+                              ),
+                            ),
+                          )
+                        : EraserIcon(
+                            color: colorScheme.primary,
+                            size: 18,
+                            filled: true,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              width: 1,
+              height: 18,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              color: colorScheme.outlineVariant,
+            ),
+            Tooltip(
+              message: 'ツールバーを表示',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: onExitFocusMode,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 7,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.fullscreen_exit_rounded,
+                        size: 18,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'UI表示',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

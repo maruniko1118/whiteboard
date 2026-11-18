@@ -220,5 +220,122 @@ void main() {
       expect(alphaAt(20, 50), greaterThan(200));
       expect(alphaAt(50, 50), 0);
     });
+
+    testWidgets(
+      'uses streamlined single-row header, board sheet, and expandable zoom HUD on mobile portrait',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final storage = BoardStorage(
+          backend: IoStorageBackend(useFileSystem: false),
+        );
+        await storage.init();
+
+        await tester.pumpWidget(WhiteboardApp(storage: storage));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(WhiteboardTopAppBar), findsOneWidget);
+        expect(find.text('メインボード'), findsOneWidget);
+        expect(find.text('自動保存済み'), findsNothing);
+        expect(find.byTooltip('新しいボードを作成'), findsNothing);
+
+        // Open Board Manager sheet and create a new board
+        await tester.tap(find.byTooltip('ボードを切り替え・管理'));
+        await tester.pumpAndSettle();
+        expect(find.text('ボード管理'), findsOneWidget);
+
+        await tester.tap(find.text('新規作成'));
+        await tester.pumpAndSettle();
+        expect(find.text('ボード 2'), findsOneWidget);
+
+        // Expand and collapse compact ZoomHud
+        await tester.tap(find.byTooltip('ズーム操作を表示 (2本指で移動・ピンチ拡大縮小)'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('拡大'), findsOneWidget);
+        await tester.tap(find.byTooltip('ズーム操作を閉じる'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('拡大'), findsNothing);
+
+        // Open More Menu sheet and toggle theme
+        await tester.tap(find.byTooltip('メニュー (保存・テーマ・設定)'));
+        await tester.pumpAndSettle();
+        expect(find.text('PNG画像として保存'), findsOneWidget);
+        await tester.tap(find.text('ダークテーマに切り替え'));
+        await tester.pumpAndSettle();
+        expect(storage.state.theme, 'dark');
+      },
+    );
+
+    testWidgets(
+      'maximizes canvas in mobile landscape with floating pills, single-row toolbar, and focus mode',
+      (tester) async {
+        tester.view.physicalSize = const Size(844, 390);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final storage = BoardStorage(
+          backend: IoStorageBackend(useFileSystem: false),
+        );
+        await storage.init();
+
+        await tester.pumpWidget(WhiteboardApp(storage: storage));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(WhiteboardTopAppBar), findsNothing);
+        expect(find.byType(WhiteboardLandscapeHeaderPill), findsOneWidget);
+        expect(
+          tester.getSize(find.byType(CanvasGestureLayer)).height,
+          equals(390.0),
+        );
+        expect(
+          tester.getSize(find.byType(FloatingToolbar)).height,
+          lessThanOrEqualTo(52.0),
+        );
+
+        // Enter focus mode to collapse floating overlays
+        await tester.tap(find.byTooltip('キャンバスを最大化 (UIを隠す)'));
+        await tester.pumpAndSettle();
+        expect(find.byType(WhiteboardLandscapeHeaderPill), findsNothing);
+        expect(find.byType(FloatingToolbar), findsNothing);
+        expect(find.text('UI表示'), findsOneWidget);
+
+        // Exit focus mode back to landscape controls
+        await tester.tap(find.byTooltip('ツールバーを表示'));
+        await tester.pumpAndSettle();
+        expect(find.byType(WhiteboardLandscapeHeaderPill), findsOneWidget);
+        expect(find.byType(FloatingToolbar), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'opens width and color dialogs without overflow on short landscape screens',
+      (tester) async {
+        tester.view.physicalSize = const Size(667, 375);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final storage = BoardStorage(
+          backend: IoStorageBackend(useFileSystem: false),
+        );
+        await storage.init();
+
+        await tester.pumpWidget(WhiteboardApp(storage: storage));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('線の太さを調整 (1px〜48px)'));
+        await tester.pumpAndSettle();
+        expect(find.text('線の太さ'), findsOneWidget);
+        await tester.tap(find.text('閉じる'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('自由な色を選択 (カスタムカラーピッカー)'));
+        await tester.pumpAndSettle();
+        expect(find.text('カラーピッカー'), findsOneWidget);
+        await tester.tap(find.text('この色を選択して閉じる'));
+        await tester.pumpAndSettle();
+      },
+    );
   });
 }

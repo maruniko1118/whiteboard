@@ -12,47 +12,53 @@ Future<void> showSeedPickerDialog(
     context: context,
     builder: (ctx) {
       final colorScheme = Theme.of(ctx).colorScheme;
+      final isCompactHeight = MediaQuery.sizeOf(ctx).height <= 520;
       return AlertDialog(
+        insetPadding: isCompactHeight
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         title: const Text(
           'M3 Expressive テーマカラー',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
-        content: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
-          children: [
-            for (final preset in AppTheme.seedPresets)
-              Tooltip(
-                message: preset.label,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(24),
-                  onTap: () {
-                    onSelectSeed(preset.hex);
-                    Navigator.of(ctx).pop();
-                  },
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: preset.color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: currentSeedHex.toUpperCase() ==
-                                preset.hex.toUpperCase()
-                            ? colorScheme.onSurface
-                            : Colors.transparent,
-                        width: 3,
+        content: SingleChildScrollView(
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final preset in AppTheme.seedPresets)
+                Tooltip(
+                  message: preset.label,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(24),
+                    onTap: () {
+                      onSelectSeed(preset.hex);
+                      Navigator.of(ctx).pop();
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: preset.color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: currentSeedHex.toUpperCase() ==
+                                  preset.hex.toUpperCase()
+                              ? colorScheme.onSurface
+                              : Colors.transparent,
+                          width: 3,
+                        ),
                       ),
+                      child: currentSeedHex.toUpperCase() ==
+                              preset.hex.toUpperCase()
+                          ? const Icon(Icons.check_rounded, color: Colors.white)
+                          : null,
                     ),
-                    child: currentSeedHex.toUpperCase() ==
-                            preset.hex.toUpperCase()
-                        ? const Icon(Icons.check_rounded, color: Colors.white)
-                        : null,
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -74,46 +80,58 @@ Future<void> showBackupMenuDialog(
     context: context,
     builder: (ctx) {
       final colorScheme = Theme.of(ctx).colorScheme;
+      final isCompactHeight = MediaQuery.sizeOf(ctx).height <= 520;
       return AlertDialog(
+        insetPadding: isCompactHeight
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         title: const Text(
           'ボードデータ管理',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         content: SizedBox(
           width: 280,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  leading: Icon(
+                    Icons.download_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: const Text(
+                    '全ボードをJSON保存',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    onExportJson();
+                  },
                 ),
-                leading: Icon(Icons.download_rounded, color: colorScheme.primary),
-                title: const Text(
-                  '全ボードをJSON保存',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                const SizedBox(height: 6),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  leading: Icon(
+                    Icons.upload_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: const Text(
+                    'JSONバックアップから復元',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    onImportJson();
+                  },
                 ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  onExportJson();
-                },
-              ),
-              const SizedBox(height: 6),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                leading: Icon(Icons.upload_rounded, color: colorScheme.primary),
-                title: const Text(
-                  'JSONバックアップから復元',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  onImportJson();
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -139,6 +157,7 @@ Future<void> showWidthSliderDialog(
       return StatefulBuilder(
         builder: (ctx, setState) {
           final colorScheme = Theme.of(ctx).colorScheme;
+          final isCompactHeight = MediaQuery.sizeOf(ctx).height <= 520;
           final presets = [
             (label: '細 2px', value: 2.0),
             (label: '中 5px', value: 5.0),
@@ -147,6 +166,9 @@ Future<void> showWidthSliderDialog(
           ];
 
           return AlertDialog(
+            insetPadding: isCompactHeight
+                ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+                : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -177,57 +199,59 @@ Future<void> showWidthSliderDialog(
             ),
             content: SizedBox(
               width: 300,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    height: 64,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: colorScheme.outlineVariant),
-                    ),
-                    alignment: Alignment.center,
-                    child: Container(
-                      width: widthVal,
-                      height: widthVal,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: isCompactHeight ? 42 : 64,
+                      width: double.infinity,
                       decoration: BoxDecoration(
-                        color: colorScheme.onSurface,
-                        shape: BoxShape.circle,
+                        color: colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colorScheme.outlineVariant),
+                      ),
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: widthVal.clamp(1.0, isCompactHeight ? 34.0 : 48.0),
+                        height: widthVal.clamp(1.0, isCompactHeight ? 34.0 : 48.0),
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurface,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final p in presets)
-                        ChoiceChip(
-                          label: Text(p.label),
-                          selected: widthVal.round() == p.value.round(),
-                          onSelected: (_) {
-                            setState(() => widthVal = p.value);
-                            onChanged(p.value);
-                          },
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Slider(
-                    value: widthVal,
-                    min: 1,
-                    max: 48,
-                    divisions: 47,
-                    label: '${widthVal.round()}px',
-                    onChanged: (v) {
-                      final rounded = v.roundToDouble();
-                      setState(() => widthVal = rounded);
-                      onChanged(rounded);
-                    },
-                  ),
-                ],
+                    SizedBox(height: isCompactHeight ? 8 : 14),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final p in presets)
+                          ChoiceChip(
+                            label: Text(p.label),
+                            selected: widthVal.round() == p.value.round(),
+                            onSelected: (_) {
+                              setState(() => widthVal = p.value);
+                              onChanged(p.value);
+                            },
+                          ),
+                      ],
+                    ),
+                    SizedBox(height: isCompactHeight ? 4 : 10),
+                    Slider(
+                      value: widthVal,
+                      min: 1,
+                      max: 48,
+                      divisions: 47,
+                      label: '${widthVal.round()}px',
+                      onChanged: (v) {
+                        final rounded = v.roundToDouble();
+                        setState(() => widthVal = rounded);
+                        onChanged(rounded);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -260,6 +284,7 @@ Future<void> showColorStudioDialog(
       return StatefulBuilder(
         builder: (ctx, setState) {
           final colorScheme = Theme.of(ctx).colorScheme;
+          final isCompactHeight = MediaQuery.sizeOf(ctx).height <= 520;
           final currentColor = hsv.toColor();
           final currentHex = AppTheme.colorToHex(currentColor);
 
@@ -271,6 +296,9 @@ Future<void> showColorStudioDialog(
           }
 
           return AlertDialog(
+            insetPadding: isCompactHeight
+                ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+                : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             title: const Text(
               'カラーピッカー',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
@@ -284,7 +312,7 @@ Future<void> showColorStudioDialog(
                   children: [
                     // 2D Saturation / Value Spectrum
                     SizedBox(
-                      height: 140,
+                      height: isCompactHeight ? 96 : 140,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           void pickAt(Offset local) {

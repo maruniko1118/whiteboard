@@ -14,19 +14,26 @@ Future<String?> showRenameBoardDialog(
     context: context,
     builder: (ctx) {
       final colorScheme = Theme.of(ctx).colorScheme;
+      final isCompactHeight = MediaQuery.sizeOf(ctx).height <= 520;
       return AlertDialog(
-        icon: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            Icons.edit_outlined,
-            color: colorScheme.onPrimaryContainer,
-          ),
-        ),
+        scrollable: true,
+        insetPadding: isCompactHeight
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        icon: isCompactHeight
+            ? null
+            : Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  Icons.edit_outlined,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
         title: const Text(
           'ボード名の変更',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
@@ -74,19 +81,26 @@ Future<bool> showConfirmActionDialog(
     context: context,
     builder: (ctx) {
       final colorScheme = Theme.of(ctx).colorScheme;
+      final isCompactHeight = MediaQuery.sizeOf(ctx).height <= 520;
       return AlertDialog(
-        icon: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: colorScheme.errorContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            Icons.delete_outline_rounded,
-            color: colorScheme.onErrorContainer,
-          ),
-        ),
+        scrollable: true,
+        insetPadding: isCompactHeight
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        icon: isCompactHeight
+            ? null
+            : Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
         title: Text(
           title,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
@@ -129,20 +143,27 @@ Future<void> showApkDownloadDialog(
     context: context,
     builder: (ctx) {
       final colorScheme = Theme.of(ctx).colorScheme;
+      final isCompactHeight = MediaQuery.sizeOf(ctx).height <= 520;
       return AlertDialog(
-        icon: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            Icons.android_rounded,
-            size: 28,
-            color: colorScheme.onPrimaryContainer,
-          ),
-        ),
+        scrollable: true,
+        insetPadding: isCompactHeight
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        icon: isCompactHeight
+            ? null
+            : Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  Icons.android_rounded,
+                  size: 28,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
         title: const Text(
           'Android アプリ (.apk)',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
