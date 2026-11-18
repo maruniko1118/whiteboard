@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:whiteboard_app/canvas/whiteboard_controller.dart';
@@ -6,6 +8,7 @@ import 'package:whiteboard_app/models/whiteboard_models.dart';
 import 'package:whiteboard_app/services/board_storage.dart';
 import 'package:whiteboard_app/services/storage_backend_io.dart';
 import 'package:whiteboard_app/theme/app_theme.dart';
+import 'package:whiteboard_app/widgets/floating_toolbar.dart';
 import 'package:whiteboard_app/widgets/whiteboard_home.dart';
 
 void main() {
@@ -147,6 +150,75 @@ void main() {
       await tester.tap(find.text('APK をダウンロード'));
       await tester.pumpAndSettle();
       expect(backend.lastOpenedUrl, WhiteboardHome.apkDownloadUrl);
+    });
+
+    testWidgets('renders custom EraserIcon and toggles filled state', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final storage = BoardStorage(
+        backend: IoStorageBackend(useFileSystem: false),
+      );
+      await storage.init();
+
+      await tester.pumpWidget(WhiteboardApp(storage: storage));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.auto_fix_normal_rounded), findsNothing);
+      expect(find.byType(EraserIcon), findsOneWidget);
+      expect(tester.widget<EraserIcon>(find.byType(EraserIcon)).filled, isFalse);
+
+      await tester.tap(find.byTooltip('消しゴム (E)'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<EraserIcon>(find.byType(EraserIcon)).filled, isTrue);
+    });
+
+    testWidgets('exports transparent PNG and preserves erased transparency', (
+      tester,
+    ) async {
+      final ctrl = WhiteboardController();
+      addTearDown(ctrl.dispose);
+
+      // Draw a horizontal pen stroke across (50, 50)
+      ctrl.startStroke(const Offset(10, 50), 1);
+      ctrl.appendStrokePoint(const Offset(90, 50));
+      ctrl.finishStroke(finalLocalPos: const Offset(90, 50));
+
+      // Erase over the middle at (50, 50)
+      ctrl.setTool(ToolType.eraser);
+      ctrl.startStroke(const Offset(50, 50), 2);
+      ctrl.finishStroke(finalLocalPos: const Offset(50, 50));
+
+      final pngBytes = await tester.runAsync(
+        () => ctrl.exportAsPng(
+          logicalSize: const Size(100, 100),
+          brightness: Brightness.light,
+          pixelRatio: 1.0,
+        ),
+      );
+      expect(pngBytes, isNotNull);
+
+      final rgba = await tester.runAsync(() async {
+        final codec = await ui.instantiateImageCodec(pngBytes!);
+        final frame = await codec.getNextFrame();
+        final data = await frame.image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        frame.image.dispose();
+        codec.dispose();
+        return data;
+      });
+      expect(rgba, isNotNull);
+
+      int alphaAt(int x, int y) => rgba!.getUint8((y * 100 + x) * 4 + 3);
+
+      expect(alphaAt(5, 5), 0);
+      expect(alphaAt(20, 50), greaterThan(200));
+      expect(alphaAt(50, 50), 0);
     });
   });
 }

@@ -135,7 +135,11 @@ class FloatingToolbar extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             _ToolToggleBtn(
-              icon: Icons.auto_fix_normal_rounded,
+              iconBuilder: (color) => EraserIcon(
+                color: color,
+                size: 20,
+                filled: currentTool == ToolType.eraser,
+              ),
               label: '消しゴム',
               tooltip: '消しゴム (E)',
               isActive: currentTool == ToolType.eraser,
@@ -349,18 +353,144 @@ class _ToolbarDivider extends StatelessWidget {
   }
 }
 
+class EraserIcon extends StatelessWidget {
+  const EraserIcon({
+    super.key,
+    required this.color,
+    this.size = 20.0,
+    this.filled = false,
+  });
+
+  final Color color;
+  final double size;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _EraserIconPainter(color: color, filled: filled),
+      ),
+    );
+  }
+}
+
+class _EraserIconPainter extends CustomPainter {
+  const _EraserIconPainter({
+    required this.color,
+    required this.filled,
+  });
+
+  final Color color;
+  final bool filled;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 24.0, size.height / 24.0);
+
+    if (filled) {
+      final fillPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+
+      final path = Path()..fillType = PathFillType.evenOdd;
+      // Outer tilted eraser body
+      path
+        ..moveTo(16.24, 3.56)
+        ..relativeLineTo(4.95, 4.94)
+        ..relativeCubicTo(0.78, 0.79, 0.78, 2.05, 0, 2.84)
+        ..lineTo(12, 20.53)
+        ..relativeArcToPoint(
+          const Offset(-5.66, 0),
+          radius: const Radius.circular(4.008),
+          largeArc: false,
+          clockwise: true,
+        )
+        ..lineTo(2.81, 17)
+        ..relativeCubicTo(-0.78, -0.79, -0.78, -2.05, 0, -2.84)
+        ..relativeLineTo(10.6, -10.6)
+        ..relativeCubicTo(0.79, -0.78, 2.05, -0.78, 2.83, 0)
+        ..close();
+
+      // Inner tip cutout
+      path
+        ..moveTo(4.22, 15.58)
+        ..relativeLineTo(3.54, 3.53)
+        ..relativeCubicTo(0.78, 0.79, 2.04, 0.79, 2.83, 0)
+        ..relativeLineTo(1.41, -1.41)
+        ..relativeLineTo(-6.36, -6.36)
+        ..relativeLineTo(-1.42, 1.41)
+        ..relativeCubicTo(-0.78, 0.79, -0.78, 2.05, 0, 2.83)
+        ..close();
+
+      // Baseline bar
+      path
+        ..moveTo(20.0, 19.0)
+        ..relativeLineTo(-6.0, 0)
+        ..relativeLineTo(-2.0, 2.0)
+        ..relativeLineTo(8.0, 0)
+        ..relativeCubicTo(0.55, 0, 1, -0.45, 1, -1)
+        ..relativeCubicTo(0, -0.55, -0.45, -1, -1, -1)
+        ..close();
+
+      canvas.drawPath(path, fillPaint);
+    } else {
+      final strokePaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      final bodyPath = Path()
+        ..moveTo(7, 21)
+        ..relativeLineTo(-4.3, -4.3)
+        ..relativeCubicTo(-1, -1, -1, -2.5, 0, -3.4)
+        ..relativeLineTo(9.6, -9.6)
+        ..relativeCubicTo(1, -1, 2.5, -1, 3.4, 0)
+        ..relativeLineTo(5.6, 5.6)
+        ..relativeCubicTo(1, 1, 1, 2.5, 0, 3.4)
+        ..lineTo(13, 21);
+
+      final baselinePath = Path()
+        ..moveTo(22, 21)
+        ..lineTo(7, 21);
+
+      final dividerPath = Path()
+        ..moveTo(5, 11)
+        ..relativeLineTo(9, 9);
+
+      canvas.drawPath(bodyPath, strokePaint);
+      canvas.drawPath(baselinePath, strokePaint);
+      canvas.drawPath(dividerPath, strokePaint);
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _EraserIconPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.filled != filled;
+  }
+}
+
 class _ToolToggleBtn extends StatelessWidget {
   const _ToolToggleBtn({
-    required this.icon,
+    this.icon,
+    this.iconBuilder,
     required this.label,
     required this.tooltip,
     required this.isActive,
     required this.hideLabel,
     required this.isMobile,
     required this.onTap,
-  });
+  }) : assert(icon != null || iconBuilder != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget Function(Color color)? iconBuilder;
   final String label;
   final String tooltip;
   final bool isActive;
@@ -371,6 +501,9 @@ class _ToolToggleBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final foregroundColor = isActive
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -390,13 +523,14 @@ class _ToolToggleBtn extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: isActive
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.onSurfaceVariant,
-                ),
+                if (iconBuilder != null)
+                  iconBuilder!(foregroundColor)
+                else
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: foregroundColor,
+                  ),
                 if (!hideLabel) ...[
                   const SizedBox(width: 6),
                   Text(
@@ -404,9 +538,7 @@ class _ToolToggleBtn extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: isActive
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.onSurfaceVariant,
+                      color: foregroundColor,
                     ),
                   ),
                 ],

@@ -251,7 +251,7 @@ class WhiteboardTopAppBar extends StatelessWidget {
         ),
         SizedBox(width: isMobile ? 5 : 8),
         Tooltip(
-          message: '現在のボードを画像として保存 (PNG)',
+          message: '現在のボードを透過画像として保存 (PNG)',
           child: FilledButton.tonal(
             onPressed: onExportPng,
             style: FilledButton.styleFrom(

@@ -198,13 +198,11 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
     final renderBox =
         _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     final size = renderBox?.size ?? MediaQuery.sizeOf(context);
-    final colorScheme = Theme.of(context).colorScheme;
     final brightness = Theme.of(context).brightness;
     final dpr = MediaQuery.devicePixelRatioOf(context);
 
     final bytes = await _canvasController.exportAsPng(
       logicalSize: size,
-      backgroundColor: colorScheme.surfaceContainerLowest,
       brightness: brightness,
       pixelRatio: dpr.clamp(1.0, 3.0),
     );
@@ -214,7 +212,7 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
     }
     final active = widget.storage.getActiveBoard();
     await widget.storage.exportPngBytes(bytes, active.title);
-    _showToast('PNG画像をダウンロードしました');
+    _showToast('透過PNG画像をダウンロードしました');
   }
 
   Future<void> _exportJson() async {

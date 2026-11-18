@@ -361,7 +361,7 @@ class WhiteboardController extends ChangeNotifier {
 
   Future<Uint8List?> exportAsPng({
     required Size logicalSize,
-    required Color backgroundColor,
+    Color? backgroundColor,
     required Brightness brightness,
     double pixelRatio = 2.0,
   }) async {
@@ -369,16 +369,19 @@ class WhiteboardController extends ChangeNotifier {
     final recorder = ui.PictureRecorder();
     final pixelW = (logicalSize.width * pixelRatio).round();
     final pixelH = (logicalSize.height * pixelRatio).round();
+    if (pixelW <= 0 || pixelH <= 0) return null;
     final canvas = Canvas(
       recorder,
       Rect.fromLTWH(0, 0, pixelW.toDouble(), pixelH.toDouble()),
     );
 
     canvas.scale(pixelRatio, pixelRatio);
-    canvas.drawRect(
-      Offset.zero & logicalSize,
-      Paint()..color = backgroundColor,
-    );
+    if (backgroundColor != null) {
+      canvas.drawRect(
+        Offset.zero & logicalSize,
+        Paint()..color = backgroundColor,
+      );
+    }
 
     canvas.saveLayer(Offset.zero & logicalSize, Paint());
     canvas.translate(panX, panY);
