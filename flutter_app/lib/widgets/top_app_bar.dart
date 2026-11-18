@@ -20,6 +20,8 @@ class WhiteboardTopAppBar extends StatelessWidget {
     required this.onExportPng,
     required this.onToggleTheme,
     this.onDownloadApk,
+    this.onCheckAppUpdate,
+    this.hasAppUpdate = false,
   });
 
   final List<BoardData> boards;
@@ -38,6 +40,8 @@ class WhiteboardTopAppBar extends StatelessWidget {
   final VoidCallback onExportPng;
   final VoidCallback onToggleTheme;
   final VoidCallback? onDownloadApk;
+  final VoidCallback? onCheckAppUpdate;
+  final bool hasAppUpdate;
 
   String _saveTooltip() {
     if (lastSavedAt == null) {
@@ -469,12 +473,14 @@ class _HeaderIconButton extends StatelessWidget {
     required this.tooltip,
     required this.size,
     required this.onPressed,
+    this.showBadge = false,
   });
 
   final IconData icon;
   final String tooltip;
   final double size;
   final VoidCallback onPressed;
+  final bool showBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -493,10 +499,32 @@ class _HeaderIconButton extends StatelessWidget {
           child: SizedBox(
             width: size,
             height: size,
-            child: Icon(
-              icon,
-              size: 20,
-              color: colorScheme.onSurfaceVariant,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                if (showBadge)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: colorScheme.surfaceContainerLow,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

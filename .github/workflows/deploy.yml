@@ -50,18 +50,54 @@ jobs:
 
       - name: Build Android APK
         working-directory: flutter_app
-        run: flutter build apk --release
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          trap 'rm -f android/app/release-keystore.jks' EXIT
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
+          fi
+          flutter build apk --release \
+            --build-name="1.0.${{ github.run_number }}" \
+            --build-number="${{ github.run_number }}"
 
       - name: Publish Android APK to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          TAG: v1.0.${{ github.run_number }}
         run: |
-          TAG="v1.0.${{ github.run_number }}"
           cp flutter_app/build/app/outputs/flutter-apk/app-release.apk whiteboard.apk
+          APK_SHA256=$(sha256sum whiteboard.apk | awk '{print $1}')
+          APK_SIZE=$(wc -c < whiteboard.apk | tr -d ' ')
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+
+          APK_SHA256="$APK_SHA256" APK_SIZE="$APK_SIZE" COMMIT_MSG="$COMMIT_MSG" node -e '
+            const fs = require("fs");
+            const repo = process.env.GITHUB_REPOSITORY;
+            const tag = process.env.TAG;
+            const payload = {
+              version: process.env.VERSION_NAME,
+              buildNumber: Number(process.env.BUILD_NUMBER),
+              tag,
+              apkUrl: `https://github.com/${repo}/releases/download/${tag}/whiteboard.apk`,
+              releaseUrl: `https://github.com/${repo}/releases/tag/${tag}`,
+              sha256: process.env.APK_SHA256,
+              sizeBytes: Number(process.env.APK_SIZE),
+              notes: process.env.COMMIT_MSG || "",
+              publishedAt: new Date().toISOString(),
+            };
+            fs.writeFileSync("version.json", JSON.stringify(payload, null, 2) + "\n");
+          '
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" whiteboard.apk --clobber
+            gh release upload "$TAG" whiteboard.apk version.json --clobber
           else
-            gh release create "$TAG" whiteboard.apk \
+            gh release create "$TAG" whiteboard.apk version.json \
               --latest \
               --title "Whiteboard $TAG" \
               --notes "Automated Android APK release built from commit ${{ github.sha }}."

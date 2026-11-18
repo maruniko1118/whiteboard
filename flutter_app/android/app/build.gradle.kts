@@ -29,11 +29,44 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        val keystoreProperties = java.util.Properties()
+        val keystorePropertiesFile = rootProject.file("key.properties")
+        if (keystorePropertiesFile.exists()) {
+            keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+        }
+
+        val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            ?: keystoreProperties.getProperty("storeFile")
+            ?: if (file("release-keystore.jks").exists()) "release-keystore.jks" else null
+        val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            ?: keystoreProperties.getProperty("storePassword")
+        val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            ?: keystoreProperties.getProperty("keyAlias")
+        val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            ?: keystoreProperties.getProperty("keyPassword")
+            ?: keystorePassword
+
+        if (keystorePath != null &&
+            !keystorePassword.isNullOrEmpty() &&
+            !keyAlias.isNullOrEmpty() &&
+            !keyPassword.isNullOrEmpty()
+        ) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Uses release keystore when configured via CI secrets or key.properties;
+            // falls back to debug keystore for local testing.
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
         }
     }
 }

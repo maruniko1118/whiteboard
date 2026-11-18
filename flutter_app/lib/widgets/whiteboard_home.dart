@@ -5,11 +5,13 @@ import 'package:material_ui/material_ui.dart';
 import '../canvas/canvas_gesture_layer.dart';
 import '../canvas/whiteboard_controller.dart';
 import '../models/whiteboard_models.dart';
+import '../services/app_updater.dart';
 import '../services/board_storage.dart';
 import 'dialogs.dart';
 import 'floating_toolbar.dart';
 import 'popovers.dart';
 import 'top_app_bar.dart';
+import 'update_dialog.dart';
 import 'zoom_hud.dart';
 
 class WhiteboardHome extends StatefulWidget {
@@ -18,6 +20,7 @@ class WhiteboardHome extends StatefulWidget {
     required this.storage,
     required this.onThemeChanged,
     this.showApkDownload = kIsWeb,
+    this.appUpdater,
   });
 
   static const String apkDownloadUrl =
@@ -28,6 +31,7 @@ class WhiteboardHome extends StatefulWidget {
   final BoardStorage storage;
   final void Function(String theme, String seedColor) onThemeChanged;
   final bool showApkDownload;
+  final AppUpdater? appUpdater;
 
   @override
   State<WhiteboardHome> createState() => _WhiteboardHomeState();
@@ -35,15 +39,18 @@ class WhiteboardHome extends StatefulWidget {
 
 class _WhiteboardHomeState extends State<WhiteboardHome> {
   late final WhiteboardController _canvasController;
+  late final AppUpdater _appUpdater;
   final ScrollController _tabScrollController = ScrollController();
   final GlobalKey _canvasKey = GlobalKey();
   late final AppLifecycleListener _lifecycleListener;
 
   String _customHex = '#6750A4';
+  bool _hasShownAutoUpdatePrompt = false;
 
   @override
   void initState() {
     super.initState();
+    _appUpdater = widget.appUpdater ?? createAppUpdater();
     _canvasController = WhiteboardController(
       onDrawStart: () => widget.storage.clearPendingSaveTimers(),
       onStateChange: ({required bool isBoardLoad}) {
@@ -66,6 +73,12 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
 
     final activeBoard = widget.storage.getActiveBoard();
     _canvasController.loadBoard(activeBoard);
+
+    if (_appUpdater.isSupported) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkForUpdatesOnStartup();
+      });
+    }
   }
 
   @override
@@ -365,32 +378,41 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
               ValueListenableBuilder<DateTime?>(
                 valueListenable: widget.storage.lastSavedAt,
                 builder: (context, savedAt, _) {
-                  return WhiteboardTopAppBar(
-                    boards: widget.storage.state.boards,
-                    activeBoardId: widget.storage.state.activeBoardId,
-                    isDark: _isDark,
-                    lastSavedAt: savedAt,
-                    tabScrollController: _tabScrollController,
-                    onSelectBoard: _switchBoard,
-                    onRenameBoard: _renameBoard,
-                    onCreateBoard: _createBoard,
-                    onDuplicateBoard: _duplicateActiveBoard,
-                    onDeleteBoard: _deleteActiveBoard,
-                    onOpenSeedPicker: () => showSeedPickerDialog(
-                      context,
-                      currentSeedHex: widget.storage.state.seedColor,
-                      onSelectSeed: _setSeedColor,
-                    ),
-                    onOpenBackupMenu: () => showBackupMenuDialog(
-                      context,
-                      onExportJson: _exportJson,
-                      onImportJson: _importJson,
-                    ),
-                    onExportPng: _exportPng,
-                    onToggleTheme: _toggleTheme,
-                    onDownloadApk: widget.showApkDownload
-                        ? _openApkDownloadDialog
-                        : null,
+                  return ValueListenableBuilder<UpdateCheckResult?>(
+                    valueListenable: _appUpdater.latestCheckResult,
+                    builder: (context, updateResult, _) {
+                      return WhiteboardTopAppBar(
+                        boards: widget.storage.state.boards,
+                        activeBoardId: widget.storage.state.activeBoardId,
+                        isDark: _isDark,
+                        lastSavedAt: savedAt,
+                        tabScrollController: _tabScrollController,
+                        onSelectBoard: _switchBoard,
+                        onRenameBoard: _renameBoard,
+                        onCreateBoard: _createBoard,
+                        onDuplicateBoard: _duplicateActiveBoard,
+                        onDeleteBoard: _deleteActiveBoard,
+                        onOpenSeedPicker: () => showSeedPickerDialog(
+                          context,
+                          currentSeedHex: widget.storage.state.seedColor,
+                          onSelectSeed: _setSeedColor,
+                        ),
+                        onOpenBackupMenu: () => showBackupMenuDialog(
+                          context,
+                          onExportJson: _exportJson,
+                          onImportJson: _importJson,
+                        ),
+                        onExportPng: _exportPng,
+                        onToggleTheme: _toggleTheme,
+                        onDownloadApk: widget.showApkDownload
+                            ? _openApkDownloadDialog
+                            : null,
+                        onCheckAppUpdate: _appUpdater.isSupported
+                            ? _openAppUpdateDialog
+                            : null,
+                        hasAppUpdate: updateResult?.hasUpdate ?? false,
+                      );
+                    },
                   );
                 },
               ),

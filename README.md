@@ -24,9 +24,10 @@ Flutter (Material Design 3 Expressive + `CustomPainter`) と Hono / Cloudflare W
   - JSON バックアップのエクスポート & インポート
 - 💾 **PNG 画像エクスポート**:
   - 現在のホワイトボードを高解像度 PNG として保存
-- 🤖 **Android アプリ (`.apk`)**:
+- 🤖 **Android アプリ (`.apk`) & 自動アップデート**:
   - サイト右上の Android アイコンから最新の `whiteboard.apk` ([GitHub Releases](https://github.com/maruniko1118/whiteboard/releases/latest/download/whiteboard.apk)) をダウンロード可能
-  - `main` ブランチへのプッシュ時に GitHub Actions で自動ビルド＆リリース公開
+  - Android アプリ起動時に最新リリース (`version.json`) を自動確認し、アプリ内からダウンロード・SHA-256 検証・インストールを実行可能
+  - `main` ブランチへのプッシュ時に GitHub Actions で自動ビルド（`--build-name` / `--build-number` 自動採番）＆リリース公開
 - ⌨️ **ショートカットキー**:
   - `1`〜`7`: ペン色選択、`P`: ペン、`E`: 消しゴム、`[` / `]`: 線の太さ変更、`T`: テーマ切替
   - `Ctrl/Cmd + Z`: 元に戻す、`Ctrl/Cmd + Y` / `Ctrl/Cmd + Shift + Z`: やり直す、`Ctrl/Cmd + +/-/0`: ズーム操作
@@ -58,10 +59,16 @@ npm run build:flutter
 npx wrangler dev
 ```
 
-### 4. Android APK ビルド
+### 4. Android APK ビルド & 自動アップデート用署名設定
 ```bash
 cd flutter_app && flutter build apk --release
 ```
+アプリ内自動アップデートで既存 APK を上書き更新するには、CI ビルド間で同じ署名鍵を使う必要があります。GitHub リポジトリの Secrets に以下を設定してください（未設定時はデバッグ鍵にフォールバックします）：
+- `ANDROID_KEYSTORE_BASE64`: JKS キーストアファイルを Base64 エンコードした文字列
+- `ANDROID_KEYSTORE_PASSWORD`: キーストアパスワード
+- `ANDROID_KEY_ALIAS`: 鍵エイリアス
+- `ANDROID_KEY_PASSWORD`: 鍵パスワード
+
 
 ### 5. Cloudflare Workers へデプロイ
 ```bash

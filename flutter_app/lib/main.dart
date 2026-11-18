@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'services/app_updater.dart';
 import 'services/board_storage.dart';
 import 'theme/app_theme.dart';
 import 'widgets/whiteboard_home.dart';
@@ -17,10 +18,12 @@ class WhiteboardApp extends StatefulWidget {
     super.key,
     required this.storage,
     this.showApkDownload = kIsWeb,
+    this.appUpdater,
   });
 
   final BoardStorage storage;
   final bool showApkDownload;
+  final AppUpdater? appUpdater;
 
   @override
   State<WhiteboardApp> createState() => _WhiteboardAppState();
@@ -63,6 +66,7 @@ class _WhiteboardAppState extends State<WhiteboardApp> {
         storage: widget.storage,
         onThemeChanged: _handleThemeChanged,
         showApkDownload: widget.showApkDownload,
+        appUpdater: widget.appUpdater,
       ),
     );
   }
