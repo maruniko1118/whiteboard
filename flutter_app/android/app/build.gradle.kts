@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystoreProperties = Properties().apply {
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -30,12 +39,6 @@ android {
     }
 
     signingConfigs {
-        val keystoreProperties = java.util.Properties()
-        val keystorePropertiesFile = rootProject.file("key.properties")
-        if (keystorePropertiesFile.exists()) {
-            keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
-        }
-
         val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
             ?: keystoreProperties.getProperty("storeFile")
             ?: if (file("release-keystore.jks").exists()) "release-keystore.jks" else null
