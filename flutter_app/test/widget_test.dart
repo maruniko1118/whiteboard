@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:whiteboard_app/canvas/canvas_gesture_layer.dart';
 import 'package:whiteboard_app/canvas/whiteboard_controller.dart';
 import 'package:whiteboard_app/main.dart';
 import 'package:whiteboard_app/models/whiteboard_models.dart';
@@ -9,6 +10,7 @@ import 'package:whiteboard_app/services/board_storage.dart';
 import 'package:whiteboard_app/services/storage_backend_io.dart';
 import 'package:whiteboard_app/theme/app_theme.dart';
 import 'package:whiteboard_app/widgets/floating_toolbar.dart';
+import 'package:whiteboard_app/widgets/top_app_bar.dart';
 import 'package:whiteboard_app/widgets/whiteboard_home.dart';
 
 void main() {
