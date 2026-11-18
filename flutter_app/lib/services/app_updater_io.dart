@@ -10,7 +10,7 @@ class IoAppUpdater implements AppUpdater {
   IoAppUpdater({this.isSupportedOverride});
 
   static const MethodChannel _channel = MethodChannel(
-    'com.example.whiteboard_app/updater',
+    'net.maruniko.whiteboard/updater',
   );
 
   final bool? isSupportedOverride;

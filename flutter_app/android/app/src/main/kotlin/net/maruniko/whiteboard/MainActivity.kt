@@ -1,4 +1,4 @@
-package com.example.whiteboard_app
+package net.maruniko.whiteboard
 
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,7 +15,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     companion object {
-        private const val UPDATER_CHANNEL = "com.example.whiteboard_app/updater"
+        private const val UPDATER_CHANNEL = "net.maruniko.whiteboard/updater"
     }
 
     private val ioExecutor = Executors.newSingleThreadExecutor()
