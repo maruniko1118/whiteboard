@@ -59,6 +59,9 @@ export class WhiteboardCanvas {
     this.isTouchGesturing = false;
     this.lastGestureMid = null;
     this.lastGestureDist = 0;
+    this.gestureStartDist = 0;
+    this.isPinchZooming = false;
+    this.gestureRafId = null;
 
     this.currentStroke = null;
     this.strokes = [];
@@ -229,6 +232,7 @@ export class WhiteboardCanvas {
     this.canvas.addEventListener('pointermove', (e) => this.handlePointerMove(e));
     window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
     window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
+    this.canvas.addEventListener('lostpointercapture', (e) => this.handlePointerUp(e));
 
     // Ctrl + Mouse Wheel Zoom (and Trackpad Pinch / Two-finger scroll)
     this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
@@ -357,7 +361,13 @@ export class WhiteboardCanvas {
         if (metrics) {
           this.lastGestureMid = { x: metrics.midX, y: metrics.midY };
           this.lastGestureDist = metrics.dist;
+          this.gestureStartDist = metrics.dist;
+          this.isPinchZooming = false;
         }
+        return;
+      }
+
+      if (this.isTouchGesturing) {
         return;
       }
     }
@@ -410,34 +420,11 @@ export class WhiteboardCanvas {
       this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (this.isTouchGesturing && this.activePointers.size >= 2) {
-        const metrics = this.getTwoTouchMetrics();
-        if (metrics && this.lastGestureMid) {
-          const rect = this.canvas.getBoundingClientRect();
-          const midCanvasX = metrics.midX - rect.left;
-          const midCanvasY = metrics.midY - rect.top;
-
-          // Pan by midpoint delta
-          const dx = metrics.midX - this.lastGestureMid.x;
-          const dy = metrics.midY - this.lastGestureMid.y;
-          this.panX += dx;
-          this.panY += dy;
-
-          // Pinch-to-zoom around midpoint
-          if (this.lastGestureDist > 8 && metrics.dist > 8) {
-            const factor = metrics.dist / this.lastGestureDist;
-            const nextScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * factor));
-            const worldX = (midCanvasX - this.panX) / this.scale;
-            const worldY = (midCanvasY - this.panY) / this.scale;
-            this.scale = nextScale;
-            this.panX = midCanvasX - worldX * this.scale;
-            this.panY = midCanvasY - worldY * this.scale;
-          }
-
-          this.lastGestureMid = { x: metrics.midX, y: metrics.midY };
-          this.lastGestureDist = metrics.dist;
-          this.committedDirty = true;
-          this.updateGridBackground();
-          this.scheduleRedraw();
+        if (this.gestureRafId === null) {
+          this.gestureRafId = requestAnimationFrame(() => {
+            this.gestureRafId = null;
+            this.applyTouchGestureFrame();
+          });
         }
         return;
       }
@@ -469,6 +456,49 @@ export class WhiteboardCanvas {
     if (pts.length > prevLen) {
       this.renderStrokeIncrementalRange(this.currentStroke, prevLen);
     }
+  }
+
+  applyTouchGestureFrame() {
+    if (!this.isTouchGesturing || this.activePointers.size < 2) return;
+    const metrics = this.getTwoTouchMetrics();
+    if (!metrics || !this.lastGestureMid) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const midCanvasX = metrics.midX - rect.left;
+    const midCanvasY = metrics.midY - rect.top;
+
+    // Pan by midpoint delta
+    const dx = metrics.midX - this.lastGestureMid.x;
+    const dy = metrics.midY - this.lastGestureMid.y;
+    this.panX += dx;
+    this.panY += dy;
+
+    // Pinch-to-zoom around midpoint (with deadzone so 2-finger panning doesn't cause unintended zoom)
+    if (!this.isPinchZooming) {
+      if (
+        this.gestureStartDist > 20 &&
+        metrics.dist > 20 &&
+        Math.abs(metrics.dist - this.gestureStartDist) >= 24 &&
+        Math.abs(metrics.dist / this.gestureStartDist - 1) >= 0.18
+      ) {
+        this.isPinchZooming = true;
+        this.lastGestureDist = metrics.dist;
+      }
+    } else if (this.lastGestureDist > 16 && metrics.dist > 16) {
+      const factor = metrics.dist / this.lastGestureDist;
+      const nextScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * factor));
+      const worldX = (midCanvasX - this.panX) / this.scale;
+      const worldY = (midCanvasY - this.panY) / this.scale;
+      this.scale = nextScale;
+      this.panX = midCanvasX - worldX * this.scale;
+      this.panY = midCanvasY - worldY * this.scale;
+      this.lastGestureDist = metrics.dist;
+    }
+
+    this.lastGestureMid = { x: metrics.midX, y: metrics.midY };
+    this.committedDirty = true;
+    this.updateGridBackground();
+    this.redrawAll();
   }
 
   commitCurrentStroke() {
@@ -508,10 +538,30 @@ export class WhiteboardCanvas {
     }
 
     if (e && e.pointerType === 'touch') {
+      if (!this.activePointers.has(e.pointerId) && !this.isDrawing) {
+        return;
+      }
+      if (this.gestureRafId !== null) {
+        cancelAnimationFrame(this.gestureRafId);
+        this.gestureRafId = null;
+        if (this.isTouchGesturing && this.activePointers.size >= 2) {
+          this.applyTouchGestureFrame();
+        }
+      }
       this.activePointers.delete(e.pointerId);
-      if (this.activePointers.size < 2) {
+      if (this.activePointers.size >= 2) {
+        const metrics = this.getTwoTouchMetrics();
+        if (metrics) {
+          this.lastGestureMid = { x: metrics.midX, y: metrics.midY };
+          this.lastGestureDist = metrics.dist;
+          this.gestureStartDist = metrics.dist;
+          this.isPinchZooming = false;
+        }
+      } else {
         this.lastGestureMid = null;
         this.lastGestureDist = 0;
+        this.gestureStartDist = 0;
+        this.isPinchZooming = false;
       }
       if (this.activePointers.size === 0) {
         this.isTouchGesturing = false;

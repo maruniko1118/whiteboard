@@ -475,6 +475,8 @@ class WhiteboardApp {
     const popover = document.getElementById(popoverId);
     if (!trigger || !popover) return;
 
+    popover.inert = !popover.classList.contains('open');
+
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpen = popover.classList.contains('open');
@@ -482,6 +484,7 @@ class WhiteboardApp {
       if (!isOpen) {
         if (onOpen) onOpen();
         this.positionPopover(trigger, popover, placement);
+        popover.inert = false;
         popover.classList.add('open');
         trigger.setAttribute('aria-expanded', 'true');
         this.activePopoverPair = { trigger, popover, placement };
@@ -530,6 +533,7 @@ class WhiteboardApp {
   closeAllPopovers() {
     document.querySelectorAll('.m3-popover.open').forEach(p => {
       p.classList.remove('open');
+      p.inert = true;
     });
     document.querySelectorAll('[aria-expanded="true"]').forEach(btn => {
       btn.setAttribute('aria-expanded', 'false');
