@@ -43,6 +43,7 @@ class _FakeAppUpdater implements AppUpdater {
   @override
   Future<UpdateCheckResult> checkForUpdate() async {
     checkCount++;
+    await Future<void>.delayed(Duration.zero);
     if (errorMessage != null) {
       final res = UpdateCheckResult(
         currentVersion: currentVersion,

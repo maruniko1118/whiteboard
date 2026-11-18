@@ -63,7 +63,11 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
       _release = initial.latestRelease;
       _stage = _UpdateStage.available;
     } else {
-      _runCheck(emitCheckingState: false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _runCheck(emitCheckingState: false);
+        }
+      });
     }
   }
 
