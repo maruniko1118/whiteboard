@@ -262,6 +262,30 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
     );
   }
 
+  Future<void> _checkForUpdatesOnStartup() async {
+    final result = await _appUpdater.checkForUpdate();
+    if (!mounted) return;
+    if (result.hasUpdate &&
+        result.latestRelease != null &&
+        !_hasShownAutoUpdatePrompt) {
+      _hasShownAutoUpdatePrompt = true;
+      await showAppUpdateDialog(
+        context,
+        updater: _appUpdater,
+        initialResult: result,
+      );
+    }
+  }
+
+  Future<void> _openAppUpdateDialog() async {
+    final cached = _appUpdater.latestCheckResult.value;
+    await showAppUpdateDialog(
+      context,
+      updater: _appUpdater,
+      initialResult: (cached != null && cached.hasUpdate) ? cached : null,
+    );
+  }
+
   Size _canvasViewportSize() {
     final box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     return box?.size ?? MediaQuery.sizeOf(context);

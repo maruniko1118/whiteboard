@@ -316,5 +316,84 @@ void main() {
         expect(find.text('最新バージョンです'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'displays SHA-256 verification error when APK checksum mismatches',
+      (tester) async {
+        tester.view.physicalSize = const Size(412, 915);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final storage = BoardStorage(
+          backend: IoStorageBackend(useFileSystem: false),
+        );
+        await storage.init();
+
+        final updater = _FakeAppUpdater(
+          currentVersion: const AppVersionInfo(version: '1.0.3', buildNumber: 3),
+          remoteRelease: const ReleaseUpdateInfo(
+            version: '1.0.4',
+            buildNumber: 4,
+            tag: 'v1.0.4',
+            apkUrl:
+                'https://github.com/maruniko1118/whiteboard/releases/download/v1.0.4/whiteboard.apk',
+            sha256: 'expected-hash',
+          ),
+          sha256Valid: false,
+        );
+
+        await tester.pumpWidget(
+          WhiteboardApp(
+            storage: storage,
+            showApkDownload: false,
+            appUpdater: updater,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('今すぐアップデート'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('アップデートエラー'), findsOneWidget);
+        expect(
+          find.text('ダウンロードした APK の整合性検証 (SHA-256) に失敗しました。'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'displays error message when manual update check fails',
+      (tester) async {
+        tester.view.physicalSize = const Size(412, 915);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final storage = BoardStorage(
+          backend: IoStorageBackend(useFileSystem: false),
+        );
+        await storage.init();
+
+        final updater = _FakeAppUpdater(
+          currentVersion: const AppVersionInfo(version: '1.0.3', buildNumber: 3),
+          errorMessage: 'ネットワーク接続エラー',
+        );
+
+        await tester.pumpWidget(
+          WhiteboardApp(
+            storage: storage,
+            showApkDownload: false,
+            appUpdater: updater,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('アプリのアップデートを確認'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('アップデートエラー'), findsOneWidget);
+        expect(find.text('ネットワーク接続エラー'), findsOneWidget);
+      },
+    );
   });
 }

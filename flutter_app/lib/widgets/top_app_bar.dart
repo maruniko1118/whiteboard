@@ -289,6 +289,18 @@ class WhiteboardTopAppBar extends StatelessWidget {
             onPressed: onDownloadApk!,
           ),
         ],
+        if (onCheckAppUpdate != null) ...[
+          SizedBox(width: isMobile ? 5 : 8),
+          _HeaderIconButton(
+            icon: Icons.system_update_rounded,
+            tooltip: hasAppUpdate
+                ? '新しいアップデートが利用可能です'
+                : 'アプリのアップデートを確認',
+            size: btnSize,
+            showBadge: hasAppUpdate,
+            onPressed: onCheckAppUpdate!,
+          ),
+        ],
         SizedBox(width: isMobile ? 5 : 8),
         _HeaderIconButton(
           icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,

@@ -7,19 +7,18 @@ import 'package:flutter/services.dart';
 import 'app_updater.dart';
 
 class IoAppUpdater implements AppUpdater {
-  IoAppUpdater({bool? isSupportedOverride})
-      : _isSupportedOverride = isSupportedOverride;
+  IoAppUpdater({this.isSupportedOverride});
 
   static const MethodChannel _channel = MethodChannel(
     'com.example.whiteboard_app/updater',
   );
 
-  final bool? _isSupportedOverride;
+  final bool? isSupportedOverride;
   final ValueNotifier<UpdateCheckResult?> _latestCheckResult =
       ValueNotifier<UpdateCheckResult?>(null);
 
   @override
-  bool get isSupported => _isSupportedOverride ?? Platform.isAndroid;
+  bool get isSupported => isSupportedOverride ?? Platform.isAndroid;
 
   @override
   ValueListenable<UpdateCheckResult?> get latestCheckResult =>
