@@ -4,20 +4,20 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "dev": "wrangler dev",
+    "dev:vite": "vite",
+    "build:flutter": "cd flutter_app && flutter build web --wasm",
+    "build": "npm run build:flutter && vite build",
+    "deploy": "npm run build:flutter && wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test:flutter": "cd flutter_app && flutter test"
   },
   "bugs": {
     "url": "https://github.com/maruniko1118/whiteboard/issues"
   },
   "homepage": "https://github.com/maruniko1118/whiteboard#readme",
   "dependencies": {
-    "@material/material-color-utilities": "^0.4.0",
-    "@material/web": "^2.5.0",
-    "hono": "^4.13.4",
-    "motion": "^14.10.1"
+    "hono": "^4.13.4"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.53.1",

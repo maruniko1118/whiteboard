@@ -1,56 +1,63 @@
-# 🎨 Hono Whiteboard (ホワイトボード)
+# 🎨 Whiteboard (Flutter Web + Cloudflare Workers)
 
-HonoとHTML5 Canvasで構築された、高速・高機能なブラウザ動作型ホワイトボードアプリケーションです。
+Flutter (Material Design 3 Expressive + `CustomPainter`) と Hono / Cloudflare Workers Static Assets で構築された、高速・マルチプラットフォーム対応のホワイトボードアプリケーションです。
 
 ---
 
 ## ✨ 主な機能
 
-- ⚡ **Honoバックエンド**: 軽量・高速なHonoサーバー（Node.js / Vite開発環境対応）
-- 🖌️ **4色カラーペン & 消しゴム**:
-  - **黒 (Black)**: ホワイトテーマでは黒、**ダークテーマでは自動的に白**に切り替わります。
-  - **赤 (Red)** / **黄 (Yellow)** / **青 (Blue)**
-  - ペンの太さ調整（細い・普通・太い）
-  - 消しゴムツール
-- 🌓 **テーマ切り替え (ホワイト / ダーク)**:
-  - ワンクリックでテーマ切り替え
-  - ダークテーマ選択時、黒ストロークは自動で白ストロークとして高コントラストに描画
-- 🗂️ **マルチボード & キャッシュ機能**:
-  - 複数のボードを作成・切替・複製・削除可能
-  - 描画内容はローカルストレージ（`localStorage`）に即座にキャッシュされ、ボードを切り替えても描画状態をそのまま保持
-  - JSONバックアップのエクスポート & インポート
-- ↩️ **Undo / Redo & 全消去**:
-  - 描画履歴の取り消し・やり直し
-  - ボードの全消去（確認モーダル付き）
-- 💾 **PNG画像エクスポート**:
-  - 現在のホワイトボードを画像（PNG）としてワンクリック保存
+- ⚡ **Cloudflare Workers + Hono バックエンド**: Workers Static Assets で Flutter Web (Wasm / CanvasKit) を配信し、`/api/*` を Hono で処理
+- 🖌️ **ベクター描画エンジン & 消しゴム**:
+  - 2次ベジェ曲線補間と `ui.Picture` オフスクリーンキャッシュ＋ビューポートカリングによる高速描画
+  - **黒 (Black)**: ライトテーマでは黒、**ダークテーマでは自動的に白**に切り替わります
+  - 7色プリセット + 2D HSV カラーピッカー（マイカラー保存最大12色）
+  - 線の太さ調整（`1px〜48px` スライダー & プリセット）
+  - `BlendMode.dstOut` による背景グリッドを壊さない消しゴムツール
+- 🔍 **無限キャンバス（パン & ズーム）**:
+  - デスクトップ: 右/中ボタンドラッグでパン、ホイールでパン、`Ctrl/Cmd + ホイール` でカーソル中心ズーム
+  - タッチ: 1本指で描画、2本指でパン＆ピンチズーム
+- 🎨 **Material Design 3 Expressive**:
+  - 5種類の動的カラーシード切り替え + ライト / ダークテーマ切り替え
+- 🗂️ **マルチボード & IndexedDB 永続化**:
+  - 複数ボードの作成・切替・名前変更・複製・削除
+  - IndexedDB (`whiteboard_app_db`) へのデバウンス自動保存（既存データ・JSON バックアップ形式と互換）
+  - JSON バックアップのエクスポート & インポート
+- 💾 **PNG 画像エクスポート**:
+  - 現在のホワイトボードを高解像度 PNG として保存
 - ⌨️ **ショートカットキー**:
-  - `1`, `2`, `3`, `4`: ペン色選択（黒/白, 赤, 黄, 青）
-  - `P`: ペンツール
-  - `E`: 消しゴム
-  - `[` / `]`: 線の太さ変更
-  - `Ctrl + Z` / `Cmd + Z`: 元に戻す (Undo)
-  - `Ctrl + Y` / `Cmd + Shift + Z`: やり直す (Redo)
-  - `T`: テーマ切り替え
+  - `1`〜`7`: ペン色選択、`P`: ペン、`E`: 消しゴム、`[` / `]`: 線の太さ変更、`T`: テーマ切替
+  - `Ctrl/Cmd + Z`: 元に戻す、`Ctrl/Cmd + Y` / `Ctrl/Cmd + Shift + Z`: やり直す、`Ctrl/Cmd + +/-/0`: ズーム操作
 
 ---
 
-## 🚀 起動方法
+## 🚀 開発・ビルド・デプロイ方法
+
+### 前提条件
+- Node.js 24+
+- Flutter SDK (stable)
 
 ### 1. 依存パッケージのインストール
 ```bash
 npm install
+cd flutter_app && flutter pub get
 ```
 
-### 2. 開発サーバーの起動
+### 2. テスト・静的解析
 ```bash
-npm run dev
+npm run test:flutter
+cd flutter_app && flutter analyze
+npm run typecheck
 ```
-ブラウザで [http://localhost:3000](http://localhost:3000) を開きます。
 
-### 3. 本番サーバーの起動
+### 3. 本番ビルド & ローカル確認
 ```bash
-npm start
+npm run build:flutter
+npx wrangler dev
+```
+
+### 4. Cloudflare Workers へデプロイ
+```bash
+npm run deploy
 ```
 
 ---
@@ -60,19 +67,20 @@ npm start
 ```
 whiteboard/
 ├── src/
-│   └── server.ts          # Honoサーバー設定・API
-├── public/
-│   ├── index.html         # ホワイトボードUIマークアップ
-│   ├── favicon.svg        # アプリアイコン
-│   ├── css/
-│   │   └── style.css      # デザイントークン & スタイル定義
-│   └── js/
-│       ├── storage.js     # キャッシュ & マルチボード管理
-│       ├── canvas.js      # ベクター描画エンジン & テーマ適応
-│       └── app.js         # UIコントローラー & イベントバインド
+│   └── server.ts                  # Hono API (Cloudflare Workers)
+├── flutter_app/
+│   ├── lib/
+│   │   ├── main.dart              # エントリーポイント & M3 Expressive テーマ適用
+│   │   ├── models/                # BoardData / Stroke / AppStateData モデル
+│   │   ├── services/              # IndexedDB / localStorage 永続化・JSON/PNG I/O
+│   │   ├── canvas/                # CustomPainter 描画エンジン & ジェスチャー処理
+│   │   ├── theme/                 # M3 Expressive テーマ & 適応カラーパレット
+│   │   └── widgets/               # TopAppBar, FloatingToolbar, ポップオーバー群
+│   ├── test/                      # ユニット & ウィジェットテスト
+│   └── web/                       # Web エントリー HTML / マニフェスト / アイコン
+├── .github/workflows/deploy.yml   # GitHub Actions 自動テスト・ビルド・デプロイ
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
-└── README.md
+└── wrangler.toml                  # Workers Static Assets 設定 (flutter_app/build/web)
 ```
-

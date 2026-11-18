@@ -21,8 +21,13 @@ lerna-debug.log*
 .env.*.local
 .wrangler/
 
+# Flutter / Dart
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins-dependencies
+flutter_app/build/
+flutter_app/.metadata
+flutter_app/**/GeneratedPluginRegistrant.*
 
 # OS files
 .DS_Store
 Thumbs.db
-

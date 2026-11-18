@@ -2,5 +2,9 @@ name = "whiteboard"
 main = "src/server.ts"
 compatibility_date = "2026-08-24"
 
-# 静的ファイル（public/ 以下）を Workers Static Assets として配信
-assets = { directory = "public" }
+# Flutter Web のビルド成果物を Workers Static Assets として配信
+[assets]
+directory = "flutter_app/build/web"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
