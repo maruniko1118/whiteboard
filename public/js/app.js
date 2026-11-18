@@ -12,11 +12,19 @@ import { WhiteboardCanvas } from './canvas.js';
 
 class WhiteboardApp {
   constructor() {
-    this.storage = new BoardStorage();
+    this.storage = new BoardStorage({
+      isDrawingCheck: () => Boolean(this.canvasEngine?.isDrawing),
+      onSaveStatusChange: (info) => this.handleSaveStatusChange(info)
+    });
     this.canvasElement = document.getElementById('whiteboard-canvas');
     this.canvasContainer = document.getElementById('canvas-container');
+    this.timeFormatter = new Intl.DateTimeFormat('ja-JP', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
 
-    // Initialize Theme & M3 Expressive Seed Color
+    // Apply cached theme & seed immediately to avoid startup flash
     this.theme = this.storage.getTheme();
     this.seedColor = this.storage.getSeedColor();
 
@@ -27,14 +35,27 @@ class WhiteboardApp {
     this.confirmCallback = null;
     this.renamingBoard = null;
 
-    // Apply M3 Expressive Theme before canvas init
     this.applyTheme(this.theme, false);
+  }
+
+  async init() {
+    await this.storage.init();
+
+    // Re-sync theme & seed in case persisted IndexedDB state differs from fast prefs
+    const storedTheme = this.storage.getTheme();
+    const storedSeed = this.storage.getSeedColor();
+    if (storedTheme !== this.theme || storedSeed !== this.seedColor) {
+      this.theme = storedTheme;
+      this.seedColor = storedSeed;
+      this.applyTheme(this.theme, false);
+    }
 
     // Initialize Canvas Engine
     this.canvasEngine = new WhiteboardCanvas(this.canvasElement, this.canvasContainer, {
       theme: this.theme,
       onStateChange: (state) => this.handleCanvasStateChange(state),
-      onViewportChange: (vp) => this.updateZoomUI(vp)
+      onViewportChange: (vp) => this.updateZoomUI(vp),
+      onDrawStart: () => this.storage.clearPendingSaveTimers()
     });
 
     // Load Initial Active Board
@@ -47,6 +68,16 @@ class WhiteboardApp {
     this.renderQuickTabs();
     this.renderCustomSwatches();
     this.updateWidthUI(this.canvasEngine.currentWidth);
+
+    // Ensure pending strokes are flushed on tab hide or unload
+    const flushPending = () => this.storage.flushSave();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushPending();
+      }
+    });
+    window.addEventListener('pagehide', flushPending);
+    window.addEventListener('beforeunload', flushPending);
   }
 
   /**
@@ -186,6 +217,7 @@ class WhiteboardApp {
 
     // Close popovers when clicking outside
     document.addEventListener('pointerdown', (e) => {
+      if (!this.activePopoverPair) return;
       if (
         !e.target.closest('.m3-popover') &&
         !e.target.closest('[aria-expanded]')
@@ -409,9 +441,12 @@ class WhiteboardApp {
         const file = e.target.files?.[0];
         if (file) {
           const reader = new FileReader();
-          reader.onload = (event) => {
-            const success = this.storage.importJson(event.target.result);
+          reader.onload = async (event) => {
+            const success = await this.storage.importJson(event.target.result);
             if (success) {
+              this.theme = this.storage.getTheme();
+              this.seedColor = this.storage.getSeedColor();
+              this.applyTheme(this.theme, false);
               const active = this.storage.getActiveBoard();
               this.canvasEngine.loadBoard(active);
               this.renderQuickTabs();
@@ -793,22 +828,29 @@ class WhiteboardApp {
     if (state.isBoardLoad) return;
 
     this.storage.updateActiveBoardStrokes(state.strokes, state.undoStack, state.redoStack);
+  }
+
+  handleSaveStatusChange(info) {
+    if (!info || info.status !== 'saved') return;
 
     const cacheStatus = document.getElementById('cache-status');
-    const nowStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     if (cacheStatus) {
+      const nowStr = this.timeFormatter.format(new Date(info.timestamp || Date.now()));
       cacheStatus.title = `ローカルストレージに自動保存済み (最終保存: ${nowStr})`;
     }
 
+    if (this.canvasEngine?.isDrawing) return;
+
     clearTimeout(this.saveSettleTimer);
     this.saveSettleTimer = setTimeout(() => {
+      if (this.canvasEngine?.isDrawing) return;
       const saveIcon = document.getElementById('save-status-icon');
       this.safeAnimate(
         saveIcon,
         { scale: [0.85, 1] },
         { type: 'spring', stiffness: 460, damping: 20 }
       );
-    }, 900);
+    }, 300);
   }
 
   /**
@@ -1157,6 +1199,7 @@ class WhiteboardApp {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   window.app = new WhiteboardApp();
+  await window.app.init();
 });

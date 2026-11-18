@@ -49,6 +49,7 @@ export class WhiteboardCanvas {
 
     // Interaction State
     this.isDrawing = false;
+    this.drawPointerId = null;
     this.isPanning = false;
     this.panPointerId = null;
     this.panLastClient = { x: 0, y: 0 };
@@ -64,9 +65,16 @@ export class WhiteboardCanvas {
     this.undoStack = [];
     this.redoStack = [];
 
+    // Offscreen committed strokes cache (avoids O(N) full redraw on every stroke or eraser move)
+    this.committedCanvas = document.createElement('canvas');
+    this.committedCtx = this.committedCanvas.getContext('2d');
+    this.committedDirty = true;
+    this.rafRedrawId = null;
+
     // Callbacks
     this.onStateChange = options.onStateChange || (() => {});
     this.onViewportChange = options.onViewportChange || (() => {});
+    this.onDrawStart = options.onDrawStart || (() => {});
 
     // Init Canvas & Listeners
     this.setupCanvasSize();
@@ -80,17 +88,30 @@ export class WhiteboardCanvas {
   setupCanvasSize() {
     const rect = this.container.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
-    this.dpr = window.devicePixelRatio || 1;
+    const nextDpr = window.devicePixelRatio || 1;
+    if (this.width === rect.width && this.height === rect.height && this.dpr === nextDpr) {
+      return;
+    }
+
+    this.dpr = nextDpr;
     this.width = rect.width;
     this.height = rect.height;
 
-    this.canvas.width = Math.floor(rect.width * this.dpr);
-    this.canvas.height = Math.floor(rect.height * this.dpr);
+    const pixelWidth = Math.floor(rect.width * this.dpr);
+    const pixelHeight = Math.floor(rect.height * this.dpr);
+
+    this.canvas.width = pixelWidth;
+    this.canvas.height = pixelHeight;
     this.canvas.style.width = `${rect.width}px`;
     this.canvas.style.height = `${rect.height}px`;
 
+    this.committedCanvas.width = pixelWidth;
+    this.committedCanvas.height = pixelHeight;
+
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(this.dpr, this.dpr);
+
+    this.committedDirty = true;
     this.redrawAll();
   }
 
@@ -127,8 +148,9 @@ export class WhiteboardCanvas {
     this.panX = cx - worldX * this.scale;
     this.panY = cy - worldY * this.scale;
 
+    this.committedDirty = true;
     this.updateGridBackground();
-    this.redrawAll();
+    this.scheduleRedraw();
   }
 
   /**
@@ -138,6 +160,7 @@ export class WhiteboardCanvas {
     this.panX = 0;
     this.panY = 0;
     this.scale = 1;
+    this.committedDirty = true;
     this.updateGridBackground();
     this.redrawAll();
   }
@@ -147,6 +170,7 @@ export class WhiteboardCanvas {
    */
   setTheme(newTheme) {
     this.theme = newTheme === 'dark' ? 'dark' : 'light';
+    this.committedDirty = true;
     this.redrawAll();
   }
 
@@ -172,12 +196,16 @@ export class WhiteboardCanvas {
    * Load board data into canvas
    */
   loadBoard(boardData) {
+    this.isDrawing = false;
+    this.drawPointerId = null;
+    this.currentStroke = null;
     this.strokes = boardData.strokes || [];
     this.undoStack = boardData.undoStack || [];
     this.redoStack = boardData.redoStack || [];
     this.panX = 0;
     this.panY = 0;
     this.scale = 1;
+    this.committedDirty = true;
     this.updateGridBackground();
     this.redrawAll();
     this.notifyStateChange({ isBoardLoad: true });
@@ -210,17 +238,52 @@ export class WhiteboardCanvas {
   }
 
   /**
-   * Convert screen pointer event to canvas world coordinates
+   * Convert screen pointer event to rounded canvas world coordinates
    */
-  getPointerPos(e) {
-    const rect = this.canvas.getBoundingClientRect();
+  getPointerPos(e, rectOverride) {
+    const rect = rectOverride || this.canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
     return {
-      x: (screenX - this.panX) / this.scale,
-      y: (screenY - this.panY) / this.scale,
-      pressure: e.pressure || 0.5
+      x: Math.round(((screenX - this.panX) / this.scale) * 100) / 100,
+      y: Math.round(((screenY - this.panY) / this.scale) * 100) / 100
     };
+  }
+
+  /**
+   * Compute and cache non-enumerable world-space bounding box for viewport culling
+   */
+  getStrokeBBox(stroke) {
+    if (stroke._bbox) return stroke._bbox;
+    const pts = stroke.points;
+    if (!pts || pts.length === 0) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const pad = (stroke.width || 5) / 2 + 2;
+    const bbox = {
+      minX: minX - pad,
+      minY: minY - pad,
+      maxX: maxX + pad,
+      maxY: maxY + pad
+    };
+    Object.defineProperty(stroke, '_bbox', {
+      value: bbox,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+    return bbox;
   }
 
   /**
@@ -250,8 +313,9 @@ export class WhiteboardCanvas {
     } else {
       this.panX -= e.deltaX;
       this.panY -= e.deltaY;
+      this.committedDirty = true;
       this.updateGridBackground();
-      this.redrawAll();
+      this.scheduleRedraw();
     }
   }
 
@@ -280,9 +344,10 @@ export class WhiteboardCanvas {
         // Cancel an accidental 1-finger stroke that just started right before the 2nd finger touched down
         if (this.isDrawing) {
           this.isDrawing = false;
+          this.drawPointerId = null;
           if (this.currentStroke && this.currentStroke.points.length <= 6) {
             this.currentStroke = null;
-            this.redrawAll();
+            this.blitCommittedToMain();
           } else if (this.currentStroke && this.currentStroke.points.length > 6) {
             this.commitCurrentStroke();
           }
@@ -304,8 +369,15 @@ export class WhiteboardCanvas {
       this.canvas.setPointerCapture(e.pointerId);
     } catch (_) {}
 
+    if (this.committedDirty) {
+      this.rebuildCommittedCanvas();
+      this.blitCommittedToMain();
+    }
+
     const pos = this.getPointerPos(e);
     this.isDrawing = true;
+    this.drawPointerId = e.pointerId;
+    this.onDrawStart();
 
     this.currentStroke = {
       id: 's_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -327,8 +399,9 @@ export class WhiteboardCanvas {
       this.panLastClient = { x: e.clientX, y: e.clientY };
       this.panX += dx;
       this.panY += dy;
+      this.committedDirty = true;
       this.updateGridBackground();
-      this.redrawAll();
+      this.scheduleRedraw();
       return;
     }
 
@@ -362,8 +435,9 @@ export class WhiteboardCanvas {
 
           this.lastGestureMid = { x: metrics.midX, y: metrics.midY };
           this.lastGestureDist = metrics.dist;
+          this.committedDirty = true;
           this.updateGridBackground();
-          this.redrawAll();
+          this.scheduleRedraw();
         }
         return;
       }
@@ -371,9 +445,30 @@ export class WhiteboardCanvas {
 
     // 3. Standard Drawing (Pen / Eraser)
     if (!this.isDrawing || !this.currentStroke) return;
-    const pos = this.getPointerPos(e);
-    this.currentStroke.points.push(pos);
-    this.renderStrokeIncremental(this.currentStroke);
+    if (this.drawPointerId !== null && e.pointerId !== this.drawPointerId) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const coalesced = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : null;
+    const events = coalesced && coalesced.length > 0 ? coalesced : [e];
+
+    const pts = this.currentStroke.points;
+    const prevLen = pts.length;
+    const minStep = 1.2 / this.scale;
+    const minStepSq = minStep * minStep;
+
+    for (let i = 0; i < events.length; i++) {
+      const pos = this.getPointerPos(events[i], rect);
+      const last = pts[pts.length - 1];
+      const dx = pos.x - last.x;
+      const dy = pos.y - last.y;
+      if (dx * dx + dy * dy >= minStepSq) {
+        pts.push(pos);
+      }
+    }
+
+    if (pts.length > prevLen) {
+      this.renderStrokeIncrementalRange(this.currentStroke, prevLen);
+    }
   }
 
   commitCurrentStroke() {
@@ -382,8 +477,23 @@ export class WhiteboardCanvas {
       if (this.undoStack.length > 50) this.undoStack.shift();
       this.redoStack = [];
 
-      this.strokes.push(this.currentStroke);
-      this.redrawAll();
+      const stroke = this.currentStroke;
+      this.getStrokeBBox(stroke);
+      this.strokes.push(stroke);
+
+      if (this.committedDirty) {
+        this.redrawAll();
+      } else {
+        // Draw ONLY the newly committed stroke onto the offscreen cache and blit (O(1) wrt history!)
+        this.committedCtx.save();
+        this.committedCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        this.committedCtx.translate(this.panX, this.panY);
+        this.committedCtx.scale(this.scale, this.scale);
+        this.drawSingleStroke(this.committedCtx, stroke);
+        this.committedCtx.restore();
+        this.blitCommittedToMain();
+      }
+
       this.notifyStateChange({ isBoardLoad: false });
     }
     this.currentStroke = null;
@@ -409,7 +519,24 @@ export class WhiteboardCanvas {
     }
 
     if (!this.isDrawing) return;
+    if (e && this.drawPointerId !== null && e.pointerId !== undefined && e.pointerId !== this.drawPointerId) {
+      return;
+    }
+
+    if (e && e.type === 'pointerup' && this.currentStroke && e.clientX !== undefined) {
+      const pos = this.getPointerPos(e);
+      const pts = this.currentStroke.points;
+      const last = pts[pts.length - 1];
+      const minFinalStep = 0.25 / this.scale;
+      const dx = pos.x - last.x;
+      const dy = pos.y - last.y;
+      if (dx * dx + dy * dy >= minFinalStep * minFinalStep) {
+        pts.push(pos);
+      }
+    }
+
     this.isDrawing = false;
+    this.drawPointerId = null;
     this.commitCurrentStroke();
   }
 
@@ -451,6 +578,7 @@ export class WhiteboardCanvas {
     if (points.length === 2) {
       ctx.lineTo(points[1].x, points[1].y);
     } else {
+      ctx.lineTo((points[0].x + points[1].x) / 2, (points[0].y + points[1].y) / 2);
       for (let i = 1; i < points.length - 1; i++) {
         const xc = (points[i].x + points[i + 1].x) / 2;
         const yc = (points[i].y + points[i + 1].y) / 2;
@@ -464,44 +592,54 @@ export class WhiteboardCanvas {
   }
 
   /**
-   * Render incremental segment during live drawing for zero-latency feedback
+   * Render newly added point segments during live drawing in O(1) time for both pen and eraser
    */
-  renderStrokeIncremental(stroke) {
+  renderStrokeIncrementalRange(stroke, startIndex) {
     const pts = stroke.points;
     const len = pts.length;
-    if (len < 2) return;
-
-    if (stroke.tool === 'eraser') {
-      this.redrawAll();
-      return;
-    }
+    if (len < 2 || startIndex >= len) return;
 
     this.ctx.save();
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
-    this.ctx.globalCompositeOperation = 'source-over';
-    this.ctx.strokeStyle = this.resolveColor(stroke);
+
+    if (stroke.tool === 'eraser') {
+      this.ctx.globalCompositeOperation = 'destination-out';
+      this.ctx.strokeStyle = 'rgba(0,0,0,1)';
+    } else {
+      this.ctx.globalCompositeOperation = 'source-over';
+      this.ctx.strokeStyle = this.resolveColor(stroke);
+    }
+
     this.ctx.lineWidth = stroke.width;
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
 
     this.ctx.beginPath();
-    if (len === 2) {
-      this.ctx.moveTo(pts[0].x, pts[0].y);
-      this.ctx.lineTo(pts[1].x, pts[1].y);
-    } else {
-      const pPrevPrev = pts[len - 3];
-      const pPrev = pts[len - 2];
-      const pCurr = pts[len - 1];
+    let started = false;
 
-      const startX = (pPrevPrev.x + pPrev.x) / 2;
-      const startY = (pPrevPrev.y + pPrev.y) / 2;
-      const endX = (pPrev.x + pCurr.x) / 2;
-      const endY = (pPrev.y + pCurr.y) / 2;
+    for (let idx = Math.max(1, startIndex); idx < len; idx++) {
+      if (idx === 1) {
+        this.ctx.moveTo(pts[0].x, pts[0].y);
+        this.ctx.lineTo((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+        started = true;
+      } else {
+        const pPrevPrev = pts[idx - 2];
+        const pPrev = pts[idx - 1];
+        const pCurr = pts[idx];
+        const endX = (pPrev.x + pCurr.x) / 2;
+        const endY = (pPrev.y + pCurr.y) / 2;
 
-      this.ctx.moveTo(startX, startY);
-      this.ctx.quadraticCurveTo(pPrev.x, pPrev.y, endX, endY);
+        if (!started) {
+          const startX = (pPrevPrev.x + pPrev.x) / 2;
+          const startY = (pPrevPrev.y + pPrev.y) / 2;
+          this.ctx.moveTo(startX, startY);
+          started = true;
+        }
+        this.ctx.quadraticCurveTo(pPrev.x, pPrev.y, endX, endY);
+      }
     }
+
     this.ctx.stroke();
     this.ctx.restore();
   }
@@ -515,34 +653,95 @@ export class WhiteboardCanvas {
   }
 
   /**
+   * Rebuild the offscreen committed strokes cache with viewport bounding-box culling
+   */
+  rebuildCommittedCanvas() {
+    if (!this.width || !this.height) return;
+    const cctx = this.committedCtx;
+    cctx.save();
+    cctx.setTransform(1, 0, 0, 1, 0, 0);
+    cctx.clearRect(0, 0, this.committedCanvas.width, this.committedCanvas.height);
+    cctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    cctx.translate(this.panX, this.panY);
+    cctx.scale(this.scale, this.scale);
+
+    const viewMinX = -this.panX / this.scale;
+    const viewMinY = -this.panY / this.scale;
+    const viewMaxX = (this.width - this.panX) / this.scale;
+    const viewMaxY = (this.height - this.panY) / this.scale;
+
+    for (let i = 0; i < this.strokes.length; i++) {
+      const stroke = this.strokes[i];
+      const bbox = this.getStrokeBBox(stroke);
+      if (
+        bbox.maxX < viewMinX ||
+        bbox.minX > viewMaxX ||
+        bbox.maxY < viewMinY ||
+        bbox.minY > viewMaxY
+      ) {
+        continue;
+      }
+      this.drawSingleStroke(cctx, stroke);
+    }
+
+    cctx.restore();
+    this.committedDirty = false;
+  }
+
+  /**
+   * Blit cached offscreen committed layer to visible canvas at 1:1 device pixels
+   */
+  blitCommittedToMain() {
+    if (!this.width || !this.height) return;
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.globalCompositeOperation = 'source-over';
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.drawImage(this.committedCanvas, 0, 0);
+    this.ctx.restore();
+  }
+
+  /**
+   * Coalesce rapid pan/zoom redraw requests to one redraw per animation frame
+   */
+  scheduleRedraw() {
+    if (this.rafRedrawId !== null) return;
+    this.rafRedrawId = requestAnimationFrame(() => {
+      this.rafRedrawId = null;
+      this.redrawAll();
+    });
+  }
+
+  /**
    * Redraw all committed strokes on the canvas with current viewport pan & scale
    */
   redrawAll() {
-    if (!this.width || !this.height) return;
-    this.ctx.clearRect(0, 0, this.width, this.height);
-
-    this.ctx.save();
-    this.ctx.translate(this.panX, this.panY);
-    this.ctx.scale(this.scale, this.scale);
-
-    for (const stroke of this.strokes) {
-      this.drawSingleStroke(this.ctx, stroke);
+    if (this.rafRedrawId !== null) {
+      cancelAnimationFrame(this.rafRedrawId);
+      this.rafRedrawId = null;
     }
+    if (!this.width || !this.height) return;
+
+    this.rebuildCommittedCanvas();
+    this.blitCommittedToMain();
 
     if (this.isDrawing && this.currentStroke) {
+      this.ctx.save();
+      this.ctx.translate(this.panX, this.panY);
+      this.ctx.scale(this.scale, this.scale);
       this.drawSingleStroke(this.ctx, this.currentStroke);
+      this.ctx.restore();
     }
-
-    this.ctx.restore();
   }
 
   /**
    * Undo action
    */
   undo() {
-    if (this.strokes.length === 0 && this.undoStack.length === 0) return;
+    if (this.undoStack.length === 0) return;
     this.redoStack.push([...this.strokes]);
     this.strokes = this.undoStack.pop() || [];
+    this.committedDirty = true;
     this.redrawAll();
     this.notifyStateChange({ isBoardLoad: false });
   }
@@ -554,6 +753,7 @@ export class WhiteboardCanvas {
     if (this.redoStack.length === 0) return;
     this.undoStack.push([...this.strokes]);
     this.strokes = this.redoStack.pop() || [];
+    this.committedDirty = true;
     this.redrawAll();
     this.notifyStateChange({ isBoardLoad: false });
   }
@@ -564,15 +764,17 @@ export class WhiteboardCanvas {
   clear() {
     if (this.strokes.length > 0) {
       this.undoStack.push([...this.strokes]);
+      if (this.undoStack.length > 50) this.undoStack.shift();
     }
     this.redoStack = [];
     this.strokes = [];
+    this.committedDirty = true;
     this.redrawAll();
     this.notifyStateChange({ isBoardLoad: false });
   }
 
   canUndo() {
-    return this.strokes.length > 0 || this.undoStack.length > 0;
+    return this.undoStack.length > 0;
   }
 
   canRedo() {
@@ -607,12 +809,22 @@ export class WhiteboardCanvas {
     offCtx.fillStyle = computedBg || (this.theme === 'dark' ? '#0f131a' : '#ffffff');
     offCtx.fillRect(0, 0, this.width, this.height);
 
-    offCtx.save();
-    offCtx.translate(this.panX, this.panY);
-    offCtx.scale(this.scale, this.scale);
+    // Composite strokes onto a temporary transparent layer so destination-out eraser
+    // only erases strokes without punching transparent holes into the background fill
+    const strokeLayer = document.createElement('canvas');
+    strokeLayer.width = offscreen.width;
+    strokeLayer.height = offscreen.height;
+    const strokeCtx = strokeLayer.getContext('2d');
+    strokeCtx.scale(this.dpr, this.dpr);
+    strokeCtx.translate(this.panX, this.panY);
+    strokeCtx.scale(this.scale, this.scale);
     for (const stroke of this.strokes) {
-      this.drawSingleStroke(offCtx, stroke);
+      this.drawSingleStroke(strokeCtx, stroke);
     }
+
+    offCtx.save();
+    offCtx.setTransform(1, 0, 0, 1, 0, 0);
+    offCtx.drawImage(strokeLayer, 0, 0);
     offCtx.restore();
 
     return new Promise((resolve) => {
