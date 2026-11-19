@@ -12,6 +12,7 @@ import 'package:whiteboard_app/theme/app_theme.dart';
 import 'package:whiteboard_app/widgets/floating_toolbar.dart';
 import 'package:whiteboard_app/widgets/top_app_bar.dart';
 import 'package:whiteboard_app/widgets/whiteboard_home.dart';
+import 'package:whiteboard_app/widgets/zoom_hud.dart';
 
 void main() {
   group('WhiteboardController', () {
@@ -337,6 +338,58 @@ void main() {
         expect(find.text('カラーピッカー'), findsOneWidget);
         await tester.tap(find.text('この色を選択して閉じる'));
         await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'moves bottom operation bars upward while a toast is visible and restores them afterwards',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final storage = BoardStorage(
+          backend: IoStorageBackend(useFileSystem: false),
+        );
+        await storage.init();
+
+        await tester.pumpWidget(WhiteboardApp(storage: storage));
+        await tester.pumpAndSettle();
+
+        final initialToolbarBottom = tester
+            .getRect(find.byType(FloatingToolbar))
+            .bottom;
+        final initialZoomHudBottom = tester.getRect(find.byType(ZoomHud)).bottom;
+
+        // Trigger a toast by tapping the zoom reset button
+        await tester.tap(find.text('100%'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SnackBar), findsOneWidget);
+        final snackBarTop = tester.getRect(find.byType(SnackBar)).top;
+        final raisedToolbarBottom = tester
+            .getRect(find.byType(FloatingToolbar))
+            .bottom;
+        final raisedZoomHudBottom = tester.getRect(find.byType(ZoomHud)).bottom;
+
+        expect(raisedToolbarBottom, lessThan(initialToolbarBottom));
+        expect(raisedToolbarBottom, lessThanOrEqualTo(snackBarTop));
+        expect(raisedZoomHudBottom, lessThan(initialZoomHudBottom));
+        expect(raisedZoomHudBottom, lessThanOrEqualTo(snackBarTop));
+
+        // Wait for the toast timer (2200ms) to fire and the exit animation to finish
+        await tester.pump(const Duration(milliseconds: 2300));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SnackBar), findsNothing);
+        expect(
+          tester.getRect(find.byType(FloatingToolbar)).bottom,
+          moreOrLessEquals(initialToolbarBottom, epsilon: 0.5),
+        );
+        expect(
+          tester.getRect(find.byType(ZoomHud)).bottom,
+          moreOrLessEquals(initialZoomHudBottom, epsilon: 0.5),
+        );
       },
     );
   });

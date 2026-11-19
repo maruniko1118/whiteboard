@@ -48,9 +48,14 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
   final GlobalKey _canvasKey = GlobalKey();
   late final AppLifecycleListener _lifecycleListener;
 
+  static const double _toastAvoidanceOffset = 80.0;
+  static const Duration _toastAvoidanceDuration = Duration(milliseconds: 220);
+
   String _customHex = '#6750A4';
   bool _hasShownAutoUpdatePrompt = false;
   bool _isFocusMode = false;
+  bool _isToastVisible = false;
+  int _toastSequence = 0;
 
   @override
   void initState() {
@@ -104,16 +109,26 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
+    final toastId = ++_toastSequence;
+    if (!_isToastVisible) {
+      setState(() => _isToastVisible = true);
+    }
     messenger.clearSnackBars();
-    messenger.showSnackBar(
+    final controller = messenger.showSnackBar(
       SnackBar(
         content: Text(
           message,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         duration: const Duration(milliseconds: 2200),
       ),
     );
+    controller.closed.whenComplete(() {
+      if (!mounted || toastId != _toastSequence) return;
+      setState(() => _isToastVisible = false);
+    });
   }
 
   void _toggleTheme() {
@@ -414,6 +429,7 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
     final colorScheme = theme.colorScheme;
     final layout = WhiteboardLayout.of(context);
     final showFullTopBar = !_isFocusMode && !layout.isMobileLandscape;
+    final toastOffset = _isToastVisible ? _toastAvoidanceOffset : 0.0;
 
     return Focus(
       autofocus: true,
@@ -518,7 +534,9 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
                     ListenableBuilder(
                       listenable: _canvasController,
                       builder: (context, _) {
-                        return Positioned(
+                        return AnimatedPositioned(
+                          duration: _toastAvoidanceDuration,
+                          curve: Curves.easeOutCubic,
                           top: layout.isMobileLandscape
                               ? math.max(8.0, layout.padding.top + 4)
                               : (layout.isMobilePortrait ? 8.0 : null),
@@ -527,7 +545,8 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
                               : (layout.isNarrowDesktop ? 12.0 : 16.0),
                           bottom: layout.isMobile
                               ? null
-                              : (layout.isNarrowDesktop ? 84.0 : 18.0),
+                              : (layout.isNarrowDesktop ? 84.0 : 18.0) +
+                                  toastOffset,
                           child: ZoomHud(
                             scale: _canvasController.scale,
                             onZoomOut: () => _canvasController.zoomAt(
@@ -549,14 +568,17 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
                       },
                     ),
                     // Floating Toolbar Dock
-                    Positioned(
+                    AnimatedPositioned(
+                      duration: _toastAvoidanceDuration,
+                      curve: Curves.easeOutCubic,
                       left: math.max(8.0, layout.padding.left + 8),
                       right: math.max(8.0, layout.padding.right + 8),
-                      bottom: layout.isDesktop
-                          ? 16.0
-                          : (layout.isMobileLandscape
-                              ? math.max(6.0, layout.padding.bottom)
-                              : math.max(10.0, layout.padding.bottom + 8)),
+                      bottom: (layout.isDesktop
+                              ? 16.0
+                              : (layout.isMobileLandscape
+                                  ? math.max(6.0, layout.padding.bottom)
+                                  : math.max(10.0, layout.padding.bottom + 8))) +
+                          toastOffset,
                       child: Center(
                         child: ListenableBuilder(
                           listenable: _canvasController,
@@ -606,9 +628,13 @@ class _WhiteboardHomeState extends State<WhiteboardHome> {
                     ),
                   ],
                   if (_isFocusMode)
-                    Positioned(
+                    AnimatedPositioned(
+                      duration: _toastAvoidanceDuration,
+                      curve: Curves.easeOutCubic,
                       right: math.max(10.0, layout.padding.right + 8),
-                      bottom: math.max(10.0, layout.padding.bottom + 6),
+                      bottom:
+                          math.max(10.0, layout.padding.bottom + 6) +
+                          toastOffset,
                       child: ListenableBuilder(
                         listenable: _canvasController,
                         builder: (context, _) {
