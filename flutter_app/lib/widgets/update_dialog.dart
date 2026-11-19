@@ -322,16 +322,10 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('あとで'),
           ),
-          if (_release?.releaseUrl != null)
-            TextButton(
-              onPressed: () =>
-                  widget.updater.openExternalUrl(_release!.releaseUrl!),
-              child: const Text('リリース詳細'),
-            ),
           FilledButton.icon(
             onPressed: _openDownloadInBrowser,
             icon: const Icon(Icons.open_in_browser_rounded, size: 18),
-            label: const Text('ブラウザでダウンロード'),
+            label: const Text('ダウンロード'),
           ),
         ];
 

@@ -209,7 +209,7 @@ void main() {
         expect(find.text('新しいアップデートがあります'), findsOneWidget);
         expect(find.text('v1.0.11'), findsOneWidget);
 
-        await tester.tap(find.text('ブラウザでダウンロード'));
+        await tester.tap(find.text('ダウンロード'));
         await tester.pumpAndSettle();
 
         expect(updater.lastOpenedUrl, apkUrl);
@@ -250,7 +250,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('ブラウザでダウンロード'));
+        await tester.tap(find.text('ダウンロード'));
         await tester.pumpAndSettle();
 
         expect(find.text('アップデートエラー'), findsOneWidget);
