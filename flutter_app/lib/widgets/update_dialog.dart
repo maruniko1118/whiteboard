@@ -211,8 +211,11 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: colorScheme.outlineVariant),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 10,
+                runSpacing: 4,
                 children: [
                   Text(
                     _currentVersion.displayLabel,
