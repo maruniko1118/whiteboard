@@ -51,7 +51,7 @@ class _WhiteboardAppState extends State<WhiteboardApp> {
   Widget build(BuildContext context) {
     final isDark = _themeMode == 'dark';
     return MaterialApp(
-      title: 'Whiteboard — Material 3 Expressive',
+      title: 'ホワイトボード',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.buildTheme(
         seedHex: _seedHex,

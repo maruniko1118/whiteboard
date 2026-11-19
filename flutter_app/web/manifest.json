@@ -1,6 +1,6 @@
 {
-    "name": "Whiteboard — Material 3 Expressive",
-    "short_name": "Whiteboard",
+    "name": "ホワイトボード",
+    "short_name": "ホワイトボード",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#f3edf7",

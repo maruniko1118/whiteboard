@@ -1034,7 +1034,7 @@ class _BrandMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
-      message: 'Whiteboard (Material 3 Expressive)',
+      message: 'ホワイトボード',
       child: Container(
         width: size,
         height: size,
