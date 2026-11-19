@@ -293,6 +293,11 @@ void main() {
         expect(find.text('新しいアップデートがあります'), findsNothing);
 
         await tester.tap(find.byTooltip('アプリのアップデートを確認'));
+        await tester.pump();
+
+        expect(find.text('現在のバージョン: v1.0.11 (11)'), findsOneWidget);
+        expect(find.textContaining('v1.0.0'), findsNothing);
+
         await tester.pumpAndSettle();
 
         expect(find.text('最新バージョンです'), findsOneWidget);

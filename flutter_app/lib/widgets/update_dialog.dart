@@ -40,10 +40,7 @@ class _AppUpdateDialog extends StatefulWidget {
 
 class _AppUpdateDialogState extends State<_AppUpdateDialog> {
   _UpdateStage _stage = _UpdateStage.checking;
-  AppVersionInfo _currentVersion = const AppVersionInfo(
-    version: '1.0.0',
-    buildNumber: 1,
-  );
+  AppVersionInfo? _currentVersion;
   ReleaseUpdateInfo? _release;
   String? _errorMessage;
 
@@ -51,8 +48,9 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
   void initState() {
     super.initState();
     final initial = widget.initialResult;
+    _currentVersion =
+        initial?.currentVersion ?? widget.updater.latestCheckResult.value?.currentVersion;
     if (initial != null && initial.hasUpdate && initial.latestRelease != null) {
-      _currentVersion = initial.currentVersion;
       _release = initial.latestRelease;
       _stage = _UpdateStage.available;
     } else {
@@ -71,6 +69,14 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
       setState(() {
         _stage = _UpdateStage.checking;
         _errorMessage = null;
+      });
+    }
+
+    if (_currentVersion == null) {
+      final current = await widget.updater.getCurrentVersion();
+      if (!mounted) return;
+      setState(() {
+        _currentVersion = current;
       });
     }
 
@@ -169,6 +175,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
   }
 
   Widget _buildBody(ColorScheme colorScheme) {
+    final versionLabel = _currentVersion?.displayLabel;
     switch (_stage) {
       case _UpdateStage.checking:
         return Column(
@@ -176,21 +183,25 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
           children: [
             const SizedBox(height: 8),
             const LinearProgressIndicator(),
-            const SizedBox(height: 14),
-            Text(
-              '現在のバージョン: ${_currentVersion.displayLabel}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.onSurfaceVariant,
+            if (versionLabel != null) ...[
+              const SizedBox(height: 14),
+              Text(
+                '現在のバージョン: $versionLabel',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
+            ],
           ],
         );
 
       case _UpdateStage.upToDate:
         return Text(
-          '現在のバージョン (${_currentVersion.displayLabel}) は最新です。',
+          versionLabel != null
+              ? '現在のバージョン ($versionLabel) は最新です。'
+              : '現在のバージョンは最新です。',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13.5,
@@ -217,18 +228,20 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                 spacing: 10,
                 runSpacing: 4,
                 children: [
-                  Text(
-                    _currentVersion.displayLabel,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurfaceVariant,
+                  if (versionLabel != null) ...[
+                    Text(
+                      versionLabel,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                  ],
                   Text(
                     release.tag,
                     style: TextStyle(
