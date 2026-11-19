@@ -164,19 +164,6 @@ class UpdateCheckResult {
   final String? errorMessage;
 }
 
-enum ApkInstallResult {
-  launched,
-  permissionRequired,
-  failed,
-}
-
-class UpdateCancelledException implements Exception {
-  const UpdateCancelledException();
-
-  @override
-  String toString() => 'Update download was cancelled.';
-}
-
 abstract class AppUpdater {
   static const String latestVersionJsonUrl =
       'https://github.com/maruniko1118/whiteboard/releases/latest/download/version.json';
@@ -193,21 +180,7 @@ abstract class AppUpdater {
 
   Future<UpdateCheckResult> checkForUpdate();
 
-  Future<String> downloadApk(
-    ReleaseUpdateInfo release, {
-    void Function(int received, int total)? onProgress,
-    bool Function()? isCancelled,
-  });
-
-  Future<bool> verifyApkSha256(String filePath, String expectedSha256);
-
-  Future<bool> canInstallPackages();
-
-  Future<void> openInstallPermissionSettings();
-
-  Future<ApkInstallResult> installApk(String filePath);
-
-  Future<void> openExternalUrl(String url);
+  Future<bool> openExternalUrl(String url);
 
   static int compareSemVer(String a, String b) {
     List<int> parse(String raw) {

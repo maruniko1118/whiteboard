@@ -11,24 +11,18 @@ class _FakeAppUpdater implements AppUpdater {
     required this.currentVersion,
     this.remoteRelease,
     this.errorMessage,
-    this.sha256Valid = true,
-    this.installSequence = const [ApkInstallResult.launched],
+    this.openUrlResult = true,
   });
 
   final AppVersionInfo currentVersion;
   final ReleaseUpdateInfo? remoteRelease;
   final String? errorMessage;
-  final bool sha256Valid;
-  final List<ApkInstallResult> installSequence;
+  final bool openUrlResult;
 
   final ValueNotifier<UpdateCheckResult?> _latestResult =
       ValueNotifier<UpdateCheckResult?>(null);
 
   int checkCount = 0;
-  int downloadCount = 0;
-  int verifyCount = 0;
-  int installCount = 0;
-  bool openedPermissionSettings = false;
   String? lastOpenedUrl;
 
   @override
@@ -66,48 +60,9 @@ class _FakeAppUpdater implements AppUpdater {
   }
 
   @override
-  Future<String> downloadApk(
-    ReleaseUpdateInfo release, {
-    void Function(int received, int total)? onProgress,
-    bool Function()? isCancelled,
-  }) async {
-    downloadCount++;
-    final total = release.sizeBytes ?? 1000;
-    onProgress?.call(total ~/ 2, total);
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    if (isCancelled?.call() == true) {
-      throw const UpdateCancelledException();
-    }
-    onProgress?.call(total, total);
-    return '/tmp/whiteboard.apk';
-  }
-
-  @override
-  Future<bool> verifyApkSha256(String filePath, String expectedSha256) async {
-    verifyCount++;
-    return sha256Valid;
-  }
-
-  @override
-  Future<bool> canInstallPackages() async => true;
-
-  @override
-  Future<void> openInstallPermissionSettings() async {
-    openedPermissionSettings = true;
-  }
-
-  @override
-  Future<ApkInstallResult> installApk(String filePath) async {
-    final idx = installCount < installSequence.length
-        ? installCount
-        : installSequence.length - 1;
-    installCount++;
-    return installSequence[idx];
-  }
-
-  @override
-  Future<void> openExternalUrl(String url) async {
+  Future<bool> openExternalUrl(String url) async {
     lastOpenedUrl = url;
+    return openUrlResult;
   }
 }
 
@@ -214,7 +169,7 @@ void main() {
 
   group('Android auto-update UI flow', () {
     testWidgets(
-      'prompts automatically on startup when update is available and handles permission + install',
+      'prompts automatically on startup when update is available and opens browser for download',
       (tester) async {
         tester.view.physicalSize = const Size(412, 915);
         tester.view.devicePixelRatio = 1.0;
@@ -225,22 +180,20 @@ void main() {
         );
         await storage.init();
 
+        const apkUrl =
+            'https://github.com/maruniko1118/whiteboard/releases/download/v1.0.11/whiteboard.apk';
         final updater = _FakeAppUpdater(
-          currentVersion: const AppVersionInfo(version: '1.0.3', buildNumber: 3),
+          currentVersion: const AppVersionInfo(version: '1.0.10', buildNumber: 10),
           remoteRelease: const ReleaseUpdateInfo(
-            version: '1.0.4',
-            buildNumber: 4,
-            tag: 'v1.0.4',
-            apkUrl:
-                'https://github.com/maruniko1118/whiteboard/releases/download/v1.0.4/whiteboard.apk',
-            sha256: 'abcd',
+            version: '1.0.11',
+            buildNumber: 11,
+            tag: 'v1.0.11',
+            apkUrl: apkUrl,
+            releaseUrl:
+                'https://github.com/maruniko1118/whiteboard/releases/tag/v1.0.11',
             sizeBytes: 2048000,
             notes: '自動アップデート対応',
           ),
-          installSequence: const [
-            ApkInstallResult.permissionRequired,
-            ApkInstallResult.launched,
-          ],
         );
 
         await tester.pumpWidget(
@@ -254,25 +207,54 @@ void main() {
 
         expect(updater.checkCount, 1);
         expect(find.text('新しいアップデートがあります'), findsOneWidget);
-        expect(find.text('v1.0.4'), findsOneWidget);
+        expect(find.text('v1.0.11'), findsOneWidget);
 
-        await tester.tap(find.text('今すぐアップデート'));
+        await tester.tap(find.text('ブラウザでダウンロード'));
         await tester.pumpAndSettle();
 
-        expect(updater.downloadCount, 1);
-        expect(updater.verifyCount, 1);
-        expect(updater.installCount, 1);
-        expect(find.text('インストールの許可が必要です'), findsOneWidget);
+        expect(updater.lastOpenedUrl, apkUrl);
+        expect(find.text('ブラウザでダウンロードを開始しました'), findsOneWidget);
+      },
+    );
 
-        await tester.tap(find.text('設定を開く'));
-        await tester.pump();
-        expect(updater.openedPermissionSettings, isTrue);
+    testWidgets(
+      'shows error when browser fails to open for update download',
+      (tester) async {
+        tester.view.physicalSize = const Size(412, 915);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-        await tester.tap(find.text('インストールを再試行'));
+        final storage = BoardStorage(
+          backend: IoStorageBackend(useFileSystem: false),
+        );
+        await storage.init();
+
+        final updater = _FakeAppUpdater(
+          currentVersion: const AppVersionInfo(version: '1.0.10', buildNumber: 10),
+          remoteRelease: const ReleaseUpdateInfo(
+            version: '1.0.11',
+            buildNumber: 11,
+            tag: 'v1.0.11',
+            apkUrl:
+                'https://github.com/maruniko1118/whiteboard/releases/download/v1.0.11/whiteboard.apk',
+          ),
+          openUrlResult: false,
+        );
+
+        await tester.pumpWidget(
+          WhiteboardApp(
+            storage: storage,
+            showApkDownload: false,
+            appUpdater: updater,
+          ),
+        );
         await tester.pumpAndSettle();
 
-        expect(updater.installCount, 2);
-        expect(find.text('インストーラーを起動しました'), findsOneWidget);
+        await tester.tap(find.text('ブラウザでダウンロード'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('アップデートエラー'), findsOneWidget);
+        expect(find.text('ブラウザでダウンロードページを開けませんでした。'), findsOneWidget);
       },
     );
 
@@ -289,13 +271,13 @@ void main() {
         await storage.init();
 
         final updater = _FakeAppUpdater(
-          currentVersion: const AppVersionInfo(version: '1.0.4', buildNumber: 4),
+          currentVersion: const AppVersionInfo(version: '1.0.11', buildNumber: 11),
           remoteRelease: const ReleaseUpdateInfo(
-            version: '1.0.4',
-            buildNumber: 4,
-            tag: 'v1.0.4',
+            version: '1.0.11',
+            buildNumber: 11,
+            tag: 'v1.0.11',
             apkUrl:
-                'https://github.com/maruniko1118/whiteboard/releases/download/v1.0.4/whiteboard.apk',
+                'https://github.com/maruniko1118/whiteboard/releases/download/v1.0.11/whiteboard.apk',
           ),
         );
 
@@ -308,58 +290,12 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // No automatic dialog when already up to date
         expect(find.text('新しいアップデートがあります'), findsNothing);
 
         await tester.tap(find.byTooltip('アプリのアップデートを確認'));
         await tester.pumpAndSettle();
 
         expect(find.text('最新バージョンです'), findsOneWidget);
-      },
-    );
-
-    testWidgets(
-      'displays SHA-256 verification error when APK checksum mismatches',
-      (tester) async {
-        tester.view.physicalSize = const Size(412, 915);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.resetPhysicalSize);
-
-        final storage = BoardStorage(
-          backend: IoStorageBackend(useFileSystem: false),
-        );
-        await storage.init();
-
-        final updater = _FakeAppUpdater(
-          currentVersion: const AppVersionInfo(version: '1.0.3', buildNumber: 3),
-          remoteRelease: const ReleaseUpdateInfo(
-            version: '1.0.4',
-            buildNumber: 4,
-            tag: 'v1.0.4',
-            apkUrl:
-                'https://github.com/maruniko1118/whiteboard/releases/download/v1.0.4/whiteboard.apk',
-            sha256: 'expected-hash',
-          ),
-          sha256Valid: false,
-        );
-
-        await tester.pumpWidget(
-          WhiteboardApp(
-            storage: storage,
-            showApkDownload: false,
-            appUpdater: updater,
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('今すぐアップデート'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('アップデートエラー'), findsOneWidget);
-        expect(
-          find.text('ダウンロードした APK の整合性検証 (SHA-256) に失敗しました。'),
-          findsOneWidget,
-        );
       },
     );
 
@@ -376,7 +312,7 @@ void main() {
         await storage.init();
 
         final updater = _FakeAppUpdater(
-          currentVersion: const AppVersionInfo(version: '1.0.3', buildNumber: 3),
+          currentVersion: const AppVersionInfo(version: '1.0.10', buildNumber: 10),
           errorMessage: 'ネットワーク接続エラー',
         );
 

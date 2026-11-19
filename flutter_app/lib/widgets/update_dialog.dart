@@ -21,10 +21,7 @@ enum _UpdateStage {
   checking,
   upToDate,
   available,
-  downloading,
-  verifying,
-  permissionRequired,
-  launched,
+  openedBrowser,
   error,
 }
 
@@ -48,11 +45,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
     buildNumber: 1,
   );
   ReleaseUpdateInfo? _release;
-  String? _downloadedApkPath;
   String? _errorMessage;
-  int _receivedBytes = 0;
-  int _totalBytes = 0;
-  bool _cancelled = false;
 
   @override
   void initState() {
@@ -71,16 +64,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
     }
   }
 
-  @override
-  void dispose() {
-    _cancelled = true;
-    super.dispose();
-  }
-
-  bool get _isBusy =>
-      _stage == _UpdateStage.checking ||
-      _stage == _UpdateStage.downloading ||
-      _stage == _UpdateStage.verifying;
+  bool get _isBusy => _stage == _UpdateStage.checking;
 
   Future<void> _runCheck({bool emitCheckingState = true}) async {
     if (emitCheckingState) {
@@ -107,90 +91,22 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
     });
   }
 
-  Future<void> _startDownloadAndInstall() async {
+  Future<void> _openDownloadInBrowser() async {
     final release = _release;
     if (release == null) return;
 
-    _cancelled = false;
-    setState(() {
-      _stage = _UpdateStage.downloading;
-      _receivedBytes = 0;
-      _totalBytes = release.sizeBytes ?? 0;
-      _errorMessage = null;
-    });
-
-    try {
-      final path = await widget.updater.downloadApk(
-        release,
-        onProgress: (received, total) {
-          if (!mounted) return;
-          setState(() {
-            _receivedBytes = received;
-            if (total > 0) {
-              _totalBytes = total;
-            }
-          });
-        },
-        isCancelled: () => _cancelled || !mounted,
-      );
-      if (!mounted) return;
-      _downloadedApkPath = path;
-
-      final expectedSha = release.sha256;
-      if (expectedSha != null && expectedSha.isNotEmpty) {
-        setState(() {
-          _stage = _UpdateStage.verifying;
-        });
-        final verified = await widget.updater.verifyApkSha256(path, expectedSha);
-        if (!mounted) return;
-        if (!verified) {
-          setState(() {
-            _stage = _UpdateStage.error;
-            _errorMessage = 'ダウンロードした APK の整合性検証 (SHA-256) に失敗しました。';
-          });
-          return;
-        }
-      }
-
-      await _installDownloadedApk();
-    } on UpdateCancelledException {
-      if (!mounted) return;
-      setState(() {
-        _stage = _UpdateStage.available;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _stage = _UpdateStage.error;
-        _errorMessage = 'アップデートのダウンロードに失敗しました ($e)';
-      });
-    }
-  }
-
-  Future<void> _installDownloadedApk() async {
-    final path = _downloadedApkPath;
-    if (path == null) {
-      await _startDownloadAndInstall();
-      return;
-    }
-
-    final installResult = await widget.updater.installApk(path);
+    final opened = await widget.updater.openExternalUrl(release.apkUrl);
     if (!mounted) return;
 
-    switch (installResult) {
-      case ApkInstallResult.launched:
-        setState(() {
-          _stage = _UpdateStage.launched;
-        });
-      case ApkInstallResult.permissionRequired:
-        setState(() {
-          _stage = _UpdateStage.permissionRequired;
-        });
-      case ApkInstallResult.failed:
-        setState(() {
-          _stage = _UpdateStage.error;
-          _errorMessage = 'Android インストーラーの起動に失敗しました。';
-        });
+    if (opened) {
+      setState(() {
+        _stage = _UpdateStage.openedBrowser;
+      });
+    } else {
+      setState(() {
+        _stage = _UpdateStage.error;
+        _errorMessage = 'ブラウザでダウンロードページを開けませんでした。';
+      });
     }
   }
 
@@ -206,49 +122,38 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isCompactHeight = MediaQuery.sizeOf(context).height <= 520;
 
     return PopScope(
       canPop: !_isBusy,
       child: AlertDialog(
-        scrollable: true,
-        insetPadding: isCompactHeight
-            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
-            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-        icon: isCompactHeight
-            ? null
-            : Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: _stage == _UpdateStage.error
-                      ? colorScheme.errorContainer
-                      : colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  switch (_stage) {
-                    _UpdateStage.upToDate => Icons.check_circle_outline_rounded,
-                    _UpdateStage.error => Icons.error_outline_rounded,
-                    _UpdateStage.permissionRequired =>
-                      Icons.admin_panel_settings_outlined,
-                    _ => Icons.system_update_rounded,
-                  },
-                  size: 26,
-                  color: _stage == _UpdateStage.error
-                      ? colorScheme.onErrorContainer
-                      : colorScheme.onPrimaryContainer,
-                ),
-              ),
+        icon: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: _stage == _UpdateStage.error
+                ? colorScheme.errorContainer
+                : colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            switch (_stage) {
+              _UpdateStage.upToDate => Icons.check_circle_outline_rounded,
+              _UpdateStage.error => Icons.error_outline_rounded,
+              _UpdateStage.openedBrowser => Icons.open_in_browser_rounded,
+              _ => Icons.system_update_rounded,
+            },
+            size: 26,
+            color: _stage == _UpdateStage.error
+                ? colorScheme.onErrorContainer
+                : colorScheme.onPrimaryContainer,
+          ),
+        ),
         title: Text(
           switch (_stage) {
             _UpdateStage.checking => 'アップデートを確認中',
             _UpdateStage.upToDate => '最新バージョンです',
             _UpdateStage.available => '新しいアップデートがあります',
-            _UpdateStage.downloading => 'アップデートをダウンロード中',
-            _UpdateStage.verifying => 'ファイルを検証中',
-            _UpdateStage.permissionRequired => 'インストールの許可が必要です',
-            _UpdateStage.launched => 'インストーラーを起動しました',
+            _UpdateStage.openedBrowser => 'ブラウザでダウンロードを開始しました',
             _UpdateStage.error => 'アップデートエラー',
           },
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
@@ -367,78 +272,9 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
           ],
         );
 
-      case _UpdateStage.downloading:
-        final hasTotal = _totalBytes > 0;
-        final progress = hasTotal
-            ? (_receivedBytes / _totalBytes).clamp(0.0, 1.0)
-            : null;
-        final percentText = hasTotal
-            ? '${(progress! * 100).round()}%'
-            : _formatBytes(_receivedBytes);
-        final sizeText = hasTotal
-            ? '${_formatBytes(_receivedBytes)} / ${_formatBytes(_totalBytes)}'
-            : _formatBytes(_receivedBytes);
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 6),
-            LinearProgressIndicator(value: progress),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  sizeText,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                Text(
-                  percentText,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-
-      case _UpdateStage.verifying:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            const LinearProgressIndicator(),
-            const SizedBox(height: 12),
-            Text(
-              'ダウンロードした APK の整合性 (SHA-256) を確認しています...',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        );
-
-      case _UpdateStage.permissionRequired:
+      case _UpdateStage.openedBrowser:
         return Text(
-          'アップデートをインストールするには、「設定を開く」からこのアプリの「不明なアプリのインストール」を許可し、戻ってから「インストールを再試行」を押してください。',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13.5,
-            color: colorScheme.onSurfaceVariant,
-          ),
-        );
-
-      case _UpdateStage.launched:
-        return Text(
-          'Android のインストーラーを開きました。画面の案内に従ってアップデートを完了してください。',
+          'ブラウザで最新版の APK (${_release?.tag ?? ''}) のダウンロードを開きました。ダウンロード完了後、通知またはファイルアプリから開いて上書きインストールしてください。',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13.5,
@@ -461,11 +297,10 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
   List<Widget> _buildActions() {
     switch (_stage) {
       case _UpdateStage.checking:
-      case _UpdateStage.verifying:
         return const [
           TextButton(
             onPressed: null,
-            child: Text('処理中...'),
+            child: Text('確認中...'),
           ),
         ];
 
@@ -487,45 +322,27 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('あとで'),
           ),
+          if (_release?.releaseUrl != null)
+            TextButton(
+              onPressed: () =>
+                  widget.updater.openExternalUrl(_release!.releaseUrl!),
+              child: const Text('リリース詳細'),
+            ),
           FilledButton.icon(
-            onPressed: _startDownloadAndInstall,
-            icon: const Icon(Icons.download_rounded, size: 18),
-            label: const Text('今すぐアップデート'),
+            onPressed: _openDownloadInBrowser,
+            icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+            label: const Text('ブラウザでダウンロード'),
           ),
         ];
 
-      case _UpdateStage.downloading:
+      case _UpdateStage.openedBrowser:
         return [
-          TextButton(
-            onPressed: () {
-              _cancelled = true;
-            },
-            child: const Text('キャンセル'),
-          ),
-        ];
-
-      case _UpdateStage.permissionRequired:
-        return [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('閉じる'),
-          ),
-          OutlinedButton(
-            onPressed: () => widget.updater.openInstallPermissionSettings(),
-            child: const Text('設定を開く'),
-          ),
-          FilledButton(
-            onPressed: _installDownloadedApk,
-            child: const Text('インストールを再試行'),
-          ),
-        ];
-
-      case _UpdateStage.launched:
-        return [
-          TextButton(
-            onPressed: _installDownloadedApk,
-            child: const Text('再度開く'),
-          ),
+          if (_release?.releaseUrl != null)
+            TextButton(
+              onPressed: () =>
+                  widget.updater.openExternalUrl(_release!.releaseUrl!),
+              child: const Text('GitHub を開く'),
+            ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('閉じる'),
@@ -546,7 +363,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
             child: const Text('閉じる'),
           ),
           FilledButton(
-            onPressed: _release != null ? _startDownloadAndInstall : _runCheck,
+            onPressed: _runCheck,
             child: const Text('再試行'),
           ),
         ];

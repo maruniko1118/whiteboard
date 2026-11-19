@@ -144,136 +144,13 @@ class IoAppUpdater implements AppUpdater {
   }
 
   @override
-  Future<String> downloadApk(
-    ReleaseUpdateInfo release, {
-    void Function(int received, int total)? onProgress,
-    bool Function()? isCancelled,
-  }) async {
-    final cacheDir = await _channel.invokeMethod<String>('getUpdateCacheDir');
-    if (cacheDir == null || cacheDir.isEmpty) {
-      throw StateError('アップデート保存先ディレクトリを取得できませんでした。');
-    }
-
-    final finalFile = File('$cacheDir/whiteboard.apk');
-    final partFile = File('$cacheDir/whiteboard.apk.part');
-    if (await finalFile.exists()) {
-      await finalFile.delete();
-    }
-    if (await partFile.exists()) {
-      await partFile.delete();
-    }
-
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15);
-    IOSink? sink;
+  Future<bool> openExternalUrl(String url) async {
     try {
-      final request = await client.getUrl(Uri.parse(release.apkUrl));
-      request.followRedirects = true;
-      request.maxRedirects = 8;
-      request.headers.set(
-        HttpHeaders.userAgentHeader,
-        'Whiteboard-Android-Updater',
-      );
-
-      final response = await request.close();
-      if (response.statusCode != HttpStatus.ok) {
-        await response.drain<void>();
-        throw HttpException(
-          'APKのダウンロードに失敗しました (HTTP ${response.statusCode})',
-          uri: Uri.parse(release.apkUrl),
-        );
-      }
-
-      final contentLength = response.contentLength > 0
-          ? response.contentLength
-          : (release.sizeBytes ?? 0);
-
-      sink = partFile.openWrite();
-      var received = 0;
-
-      await for (final chunk in response) {
-        if (isCancelled?.call() == true) {
-          throw const UpdateCancelledException();
-        }
-        sink.add(chunk);
-        received += chunk.length;
-        onProgress?.call(received, contentLength);
-      }
-
-      if (isCancelled?.call() == true) {
-        throw const UpdateCancelledException();
-      }
-
-      await sink.flush();
-      await sink.close();
-      sink = null;
-
-      await partFile.rename(finalFile.path);
-      return finalFile.path;
-    } catch (_) {
-      await sink?.close();
-      if (await partFile.exists()) {
-        await partFile.delete();
-      }
-      rethrow;
-    } finally {
-      client.close(force: true);
-    }
-  }
-
-  @override
-  Future<bool> verifyApkSha256(String filePath, String expectedSha256) async {
-    try {
-      final ok = await _channel.invokeMethod<bool>('verifySha256', {
-        'filePath': filePath,
-        'expectedSha256': expectedSha256,
-      });
-      return ok ?? false;
+      final opened = await _channel.invokeMethod<bool>('openUrl', {'url': url});
+      return opened ?? false;
     } catch (_) {
       return false;
     }
-  }
-
-  @override
-  Future<bool> canInstallPackages() async {
-    try {
-      final allowed = await _channel.invokeMethod<bool>(
-        'canRequestPackageInstalls',
-      );
-      return allowed ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  Future<void> openInstallPermissionSettings() async {
-    try {
-      await _channel.invokeMethod<bool>('openInstallPermissionSettings');
-    } catch (_) {}
-  }
-
-  @override
-  Future<ApkInstallResult> installApk(String filePath) async {
-    try {
-      final res = await _channel.invokeMethod<String>('installApk', {
-        'filePath': filePath,
-      });
-      return switch (res) {
-        'launched' => ApkInstallResult.launched,
-        'permission_required' => ApkInstallResult.permissionRequired,
-        _ => ApkInstallResult.failed,
-      };
-    } catch (_) {
-      return ApkInstallResult.failed;
-    }
-  }
-
-  @override
-  Future<void> openExternalUrl(String url) async {
-    try {
-      await _channel.invokeMethod<bool>('openUrl', {'url': url});
-    } catch (_) {}
   }
 }
 

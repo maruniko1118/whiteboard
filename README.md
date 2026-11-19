@@ -24,9 +24,9 @@ Flutter (Material Design 3 Expressive + `CustomPainter`) と Hono / Cloudflare W
   - JSON バックアップのエクスポート & インポート
 - 💾 **PNG 画像エクスポート**:
   - 現在のホワイトボードを高解像度 PNG として保存
-- 🤖 **Android アプリ (`.apk`) & 自動アップデート**:
+- 🤖 **Android アプリ (`.apk`) & アップデート確認**:
   - サイト右上の Android アイコンから最新の `whiteboard.apk` ([GitHub Releases](https://github.com/maruniko1118/whiteboard/releases/latest/download/whiteboard.apk)) をダウンロード可能
-  - Android アプリ起動時に最新リリース (`version.json`) を自動確認し、アプリ内からダウンロード・SHA-256 検証・インストールを実行可能
+  - Android アプリ起動時に最新リリース (`version.json`) を自動確認し、更新があればブラウザから最新 APK をダウンロード可能
   - `main` ブランチへのプッシュ時に GitHub Actions で自動ビルド（`--build-name` / `--build-number` 自動採番）＆リリース公開
 - ⌨️ **ショートカットキー**:
   - `1`〜`7`: ペン色選択、`P`: ペン、`E`: 消しゴム、`[` / `]`: 線の太さ変更、`T`: テーマ切替

@@ -27,32 +27,7 @@ class WebAppUpdater implements AppUpdater {
   }
 
   @override
-  Future<String> downloadApk(
-    ReleaseUpdateInfo release, {
-    void Function(int received, int total)? onProgress,
-    bool Function()? isCancelled,
-  }) {
-    throw UnsupportedError('Web does not support APK self-update.');
-  }
-
-  @override
-  Future<bool> verifyApkSha256(String filePath, String expectedSha256) async {
-    return false;
-  }
-
-  @override
-  Future<bool> canInstallPackages() async => false;
-
-  @override
-  Future<void> openInstallPermissionSettings() async {}
-
-  @override
-  Future<ApkInstallResult> installApk(String filePath) async {
-    return ApkInstallResult.failed;
-  }
-
-  @override
-  Future<void> openExternalUrl(String url) async {}
+  Future<bool> openExternalUrl(String url) async => false;
 }
 
 AppUpdater createPlatformAppUpdater() => WebAppUpdater();
